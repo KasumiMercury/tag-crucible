@@ -23,7 +23,7 @@ pub enum ScanError {
 async fn scan_directory(path: String) -> Result<Vec<String>, ScanError> {
     let mut entries = Vec::new();
 
-    let mut walker = WalkDir::new(&path).into_iter();
+    let mut walker = WalkDir::new(&path).max_depth(1).into_iter();
     loop {
         let entry = match walker.next() {
             Some(Ok(entry)) => entry,
