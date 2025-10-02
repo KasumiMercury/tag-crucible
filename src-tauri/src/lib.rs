@@ -2,6 +2,7 @@ use std::env;
 use walkdir::WalkDir;
 use serde::Serialize;
 use thiserror::Error;
+use std::path::PathBuf;
 
 // Custom error type for directory scanning operations
 #[derive(Error, Debug, Serialize)]
@@ -22,7 +23,13 @@ pub enum ScanError {
 async fn scan_directory(path: String) -> Result<Vec<String>, ScanError> {
     let mut entries = Vec::new();
 
-    for entry in WalkDir::new(&path).into_iter().filter_map(|e| e.ok()) {
+    let mut walker = WalkDir::new(&path).into_iter();
+    loop {
+        let entry = match walker.next() {
+            Some(Ok(entry)) => entry,
+            Some(Err(e)) => return Err(ScanError::Io(e.to_string())),
+            None => break,
+        };
         entries.push(entry.path().display().to_string());
     }
 
@@ -40,13 +47,12 @@ async fn scan_current_directory() -> Result<Vec<String>, ScanError> {
     let relative_entries = entries
         .into_iter()
         .filter_map(|path| {
-            let path_buf = std::path::PathBuf::from(&path);
+            let path_buf = PathBuf::from(&path);
             path_buf
                 .strip_prefix(&current_dir)
                 .ok()
                 .map(|p| p.display().to_string())
         })
-        .filter(|p| !p.is_empty())
         .collect();
 
     Ok(relative_entries)
