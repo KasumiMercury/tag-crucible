@@ -1,9 +1,25 @@
 use std::env;
 use walkdir::WalkDir;
+use serde::Serialize;
+use thiserror::Error;
+
+// Custom error type for directory scanning operations
+#[derive(Error, Debug, Serialize)]
+#[serde(tag = "type", content = "message")]
+pub enum ScanError {
+    #[error("Failed to get current directory: {0}")]
+    CurrentDir(String),
+
+    #[error("Failed to strip prefix: {0}")]
+    StripPrefix(String),
+
+    #[error("IO error: {0}")]
+    Io(String),
+}
 
 // Generic directory scanning function
 #[tauri::command]
-fn scan_directory(path: String) -> Result<Vec<String>, String> {
+async fn scan_directory(path: String) -> Result<Vec<String>, ScanError> {
     let mut entries = Vec::new();
 
     for entry in WalkDir::new(&path).into_iter().filter_map(|e| e.ok()) {
@@ -15,28 +31,25 @@ fn scan_directory(path: String) -> Result<Vec<String>, String> {
 
 // Scan current working directory and return relative paths
 #[tauri::command]
-fn scan_current_directory() -> Result<Vec<String>, String> {
+async fn scan_current_directory() -> Result<Vec<String>, ScanError> {
     let current_dir = env::current_dir()
-        .map_err(|e| format!("Failed to get current directory: {}", e))?;
+        .map_err(|e| ScanError::CurrentDir(e.to_string()))?;
 
-    let mut entries = Vec::new();
+    let entries = scan_directory(current_dir.display().to_string()).await?;
 
-    for entry in WalkDir::new(&current_dir).into_iter().filter_map(|e| e.ok()) {
-        let path = entry.path();
+    let relative_entries = entries
+        .into_iter()
+        .filter_map(|path| {
+            let path_buf = std::path::PathBuf::from(&path);
+            path_buf
+                .strip_prefix(&current_dir)
+                .ok()
+                .map(|p| p.display().to_string())
+        })
+        .filter(|p| !p.is_empty())
+        .collect();
 
-        let relative_path = path
-            .strip_prefix(&current_dir)
-            .map_err(|e| format!("Failed to strip prefix: {}", e))?
-            .display()
-            .to_string();
-
-        // Skip root directory entry
-        if !relative_path.is_empty() {
-            entries.push(relative_path);
-        }
-    }
-
-    Ok(entries)
+    Ok(relative_entries)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
