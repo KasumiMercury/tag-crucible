@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import "./App.css";
 
 interface FileInfo {
@@ -35,18 +35,22 @@ function App() {
   }
 
   return (
-    <main className="pt-[10vh] flex flex-col justify-center text-center">
+    <main className="pt-[10vh] px-5 flex flex-col justify-center text-center">
       <button
+        type="button"
         onClick={scanDirectory}
         className="rounded-lg border border-transparent px-5 py-2.5 text-base font-medium bg-white text-gray-950 shadow-md transition-colors duration-200 cursor-pointer hover:border-blue-600 active:border-blue-600 active:bg-gray-200 dark:text-white dark:bg-gray-950/60 dark:active:bg-gray-950/40 outline-none"
       >
         Scan
       </button>
       {loading && <div>Loading...</div>}
-      <div className="mt-5">
-        {paths.map((item, index) => (
-          <div key={index}>
-            {item.path}/ / size:{item.size} / modified: {item.modified} /
+      <div className="mt-5 px-5 flex flex-col gap-2">
+        {paths.map((item, _) => (
+          <div
+            key={item.path}
+            className="w-full rounded-md py-1 px-4 border border-white"
+          >
+            {item.path}/ size:{item.size} / modified: {item.modified} /
             is_directory: {item.is_directory.toString()} / is_symlink:{" "}
             {item.is_symlink.toString()}
           </div>
