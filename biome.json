@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["src/**/*.{js,ts,jsx,tsx,json,css}"]
+    "includes": ["src/**/*.{js,ts,jsx,tsx,json,css}", "./*.{json,js,ts}"]
   },
   "formatter": {
     "enabled": true,
