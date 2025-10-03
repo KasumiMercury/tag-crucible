@@ -1,6 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 import "./App.css";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface FileInfo {
   path: string;
@@ -13,6 +21,18 @@ interface FileInfo {
 function App() {
   const [paths, setPaths] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState(false);
+
+  function formatDateTime(isoString: string | null): string {
+    if (!isoString) return "-";
+    const date = new Date(isoString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+    return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+  }
 
   async function scanDirectory() {
     setLoading(true);
@@ -44,17 +64,25 @@ function App() {
         Scan
       </button>
       {loading && <div>Loading...</div>}
-      <div className="mt-5 px-5 flex flex-col gap-2">
-        {paths.map((item, _) => (
-          <div
-            key={item.path}
-            className="w-full rounded-md py-1 px-4 border border-white"
-          >
-            {item.path}/ size:{item.size} / modified: {item.modified} /
-            is_directory: {item.is_directory.toString()} / is_symlink:{" "}
-            {item.is_symlink.toString()}
-          </div>
-        ))}
+      <div className="mt-5 px-5 text-start">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Path</TableHead>
+              <TableHead>modified</TableHead>
+              <TableHead>size</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paths.map((item, _) => (
+              <TableRow key={item.path}>
+                <TableCell>{item.path}</TableCell>
+                <TableCell>{formatDateTime(item.modified)}</TableCell>
+                <TableCell>{item.is_directory ? "-" : item.size}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </main>
   );
