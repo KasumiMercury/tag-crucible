@@ -22,6 +22,7 @@ export const exploreColumns: ColumnDef<DirectoryNode>[] = [
   {
     accessorKey: "name",
     header: "Name",
+    enableSorting: true,
   },
   {
     accessorKey: "info.modified",
@@ -35,6 +36,19 @@ export const exploreColumns: ColumnDef<DirectoryNode>[] = [
     header: "Size",
     accessorFn: (row) => {
       return row.info.is_directory ? "-" : `${row.info.size}`;
+    },
+    enableSorting: true,
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original;
+      const b = rowB.original;
+
+      // Directories always come last when sorting by size
+      if (a.info.is_directory && !b.info.is_directory) return 1;
+      if (!a.info.is_directory && b.info.is_directory) return -1;
+      if (a.info.is_directory && b.info.is_directory) return 0;
+
+      // Sort files by numeric size
+      return a.info.size - b.info.size;
     },
   },
 ];

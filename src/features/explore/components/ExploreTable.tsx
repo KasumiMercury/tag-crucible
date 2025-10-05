@@ -1,10 +1,13 @@
 import {
   type ColumnDef,
+  type SortingState,
   flexRender,
   getCoreRowModel,
+  getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import {
   Table,
@@ -22,6 +25,8 @@ interface ExploreTableProps {
 }
 
 export function ExploreTable({ columns, data }: ExploreTableProps) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+
   const rowPinning = useMemo(() => {
     if (data.length > 0) {
       const firstRowPath = data[0]?.info.path;
@@ -35,11 +40,14 @@ export function ExploreTable({ columns, data }: ExploreTableProps) {
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: setSorting,
     enableRowPinning: true,
     keepPinnedRows: true,
     getRowId: (row) => row.info.path,
     state: {
       rowPinning,
+      sorting,
     },
   });
 
@@ -52,12 +60,32 @@ export function ExploreTable({ columns, data }: ExploreTableProps) {
               {headerGroup.headers.map((header) => {
                 return (
                   <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
+                    {header.isPlaceholder ? null : (
+                      <div
+                        className={
+                          header.column.getCanSort()
+                            ? "cursor-pointer select-none flex items-center gap-1"
+                            : ""
+                        }
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(
                           header.column.columnDef.header,
                           header.getContext(),
                         )}
+                        {header.column.getCanSort() && (
+                          <>
+                            {header.column.getIsSorted() === "asc" ? (
+                              <ArrowUp size={14} />
+                            ) : header.column.getIsSorted() === "desc" ? (
+                              <ArrowDown size={14} />
+                            ) : (
+                              <ArrowUpDown size={14} />
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </TableHead>
                 );
               })}
