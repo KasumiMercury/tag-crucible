@@ -14,21 +14,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { DirectoryNode } from "@/features/explore/types";
 
-interface ExploreTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
-  data: TData[];
+interface ExploreTableProps {
+  columns: ColumnDef<DirectoryNode>[];
+  data: DirectoryNode[];
 }
 
-export function ExploreTable<TData, TValue>({
-  columns,
-  data,
-}: ExploreTableProps<TData, TValue>) {
+export function ExploreTable({ columns, data }: ExploreTableProps) {
   const rowPinning = useMemo(() => {
     if (data.length > 0) {
-      const firstRowId = (data[0] as any)?.info?.path;
-      return firstRowId ? { top: [firstRowId] } : {};
+      const firstRowPath = data[0]?.info.path;
+      return firstRowPath ? { top: [firstRowPath] } : {};
     }
+
     return {};
   }, [data]);
 
@@ -38,7 +37,7 @@ export function ExploreTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     enableRowPinning: true,
     keepPinnedRows: true,
-    getRowId: (row) => (row as any).info.path,
+    getRowId: (row) => row.info.path,
     state: {
       rowPinning,
     },
