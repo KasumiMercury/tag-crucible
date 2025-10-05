@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+// import path from "node:path";
 
 interface FileInfo {
   path: string;
@@ -18,8 +19,14 @@ interface FileInfo {
   modified: string | null;
 }
 
+interface Node {
+  name: string;
+  info: FileInfo;
+  children: Node[];
+}
+
 function App() {
-  const [paths, setPaths] = useState<FileInfo[]>([]);
+  const [paths, setPaths] = useState<Node | null>(null);
   const [loading, setLoading] = useState(false);
 
   function formatDateTime(isoString: string | null): string {
@@ -37,7 +44,7 @@ function App() {
   async function scanDirectory() {
     setLoading(true);
     try {
-      invoke<FileInfo[]>("scan_current_directory")
+      invoke<Node>("scan_current_directory")
         .then((res) => {
           console.log(res);
           setPaths(res);
@@ -45,12 +52,12 @@ function App() {
         })
         .catch((err) => {
           console.error("Invocation error:", err);
-          setPaths([]);
+          setPaths(null);
           setLoading(false);
         });
     } catch (error) {
       console.error("Failed to scan directory:", error);
-      setPaths([]);
+      setPaths(null);
     }
   }
 
@@ -65,24 +72,35 @@ function App() {
       </button>
       {loading && <div>Loading...</div>}
       <div className="mt-5 px-5 text-start">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Path</TableHead>
-              <TableHead>modified</TableHead>
-              <TableHead>size</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paths.map((item, _) => (
-              <TableRow key={item.path}>
-                <TableCell>{item.path}</TableCell>
-                <TableCell>{formatDateTime(item.modified)}</TableCell>
-                <TableCell>{item.is_directory ? "-" : item.size}</TableCell>
+        {paths && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Path</TableHead>
+                <TableHead>modified</TableHead>
+                <TableHead>size</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>.</TableCell>
+                <TableCell>{formatDateTime(paths.info.modified)}</TableCell>
+                <TableCell>
+                  {paths.info.is_directory ? "-" : paths.info.size}
+                </TableCell>
+              </TableRow>
+              {paths.children.map((item, _) => (
+                <TableRow key={item.info.path}>
+                  <TableCell>{item.info.path}</TableCell>
+                  <TableCell>{formatDateTime(item.info.modified)}</TableCell>
+                  <TableCell>
+                    {item.info.is_directory ? "-" : item.info.size}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </main>
   );
