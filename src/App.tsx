@@ -24,10 +24,6 @@ function App() {
     }
   };
 
-  const tableData = directoryTree
-    ? [{ ...directoryTree, name: "." }, ...directoryTree.children]
-    : [];
-
   return (
     <main className="pt-[10vh] px-5 flex flex-col justify-center text-center">
       <button
@@ -39,9 +35,15 @@ function App() {
         {loading ? "Scanning..." : "Scan"}
       </button>
       {loading && <div className="mt-2">Loading...</div>}
-      <div className="mt-5 px-5 text-start">
-        <ExploreTable columns={exploreColumns} data={tableData} />
-      </div>
+      {directoryTree && (
+        <div className="mt-5 px-5 text-start">
+          <ExploreTable
+            columns={exploreColumns}
+            currentDirectoryInfo={directoryTree.info}
+            childNodes={directoryTree.children}
+          />
+        </div>
+      )}
     </main>
   );
 }

@@ -18,25 +18,39 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { DirectoryNode } from "@/features/explore/types";
+import type { DirectoryNode, FileInfo } from "@/features/explore/types";
 
 interface ExploreTableProps {
   columns: ColumnDef<DirectoryNode>[];
-  data: DirectoryNode[];
+  currentDirectoryInfo: FileInfo;
+  childNodes: DirectoryNode[];
 }
 
-export function ExploreTable({ columns, data }: ExploreTableProps) {
+export function ExploreTable({
+  columns,
+  currentDirectoryInfo,
+  childNodes,
+}: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const rowPinning = useMemo(() => {
-    const pinnedTopRowIds = Array.from(
-      new Set(
-        data.filter((row) => row.name === ".").map((row) => row.info.path),
-      ),
-    );
+  const currentDirectory: DirectoryNode = useMemo(
+    () => ({
+      name: ".",
+      info: currentDirectoryInfo,
+      children: [],
+    }),
+    [currentDirectoryInfo],
+  );
 
-    return pinnedTopRowIds.length > 0 ? { top: pinnedTopRowIds } : {};
-  }, [data]);
+  const data = useMemo(
+    () => [currentDirectory, ...childNodes],
+    [currentDirectory, childNodes],
+  );
+
+  const rowPinning = useMemo(
+    () => ({ top: [currentDirectoryInfo.path] }),
+    [currentDirectoryInfo.path],
+  );
 
   const table = useReactTable({
     data,
