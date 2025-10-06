@@ -1,5 +1,6 @@
 import {
   type ColumnDef,
+  type Row,
   type SortingState,
   flexRender,
   getCoreRowModel,
@@ -28,12 +29,13 @@ export function ExploreTable({ columns, data }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const rowPinning = useMemo(() => {
-    if (data.length > 0) {
-      const firstRowPath = data[0]?.info.path;
-      return firstRowPath ? { top: [firstRowPath] } : {};
-    }
+    const pinnedTopRowIds = Array.from(
+      new Set(
+        data.filter((row) => row.name === ".").map((row) => row.info.path),
+      ),
+    );
 
-    return {};
+    return pinnedTopRowIds.length > 0 ? { top: pinnedTopRowIds } : {};
   }, [data]);
 
   const table = useReactTable({
@@ -51,6 +53,24 @@ export function ExploreTable({ columns, data }: ExploreTableProps) {
     },
   });
 
+  const renderRow = (row: Row<DirectoryNode>) => (
+    <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+      {row.getVisibleCells().map((cell) => (
+        <TableCell key={cell.id}>
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </TableCell>
+      ))}
+    </TableRow>
+  );
+
+  const pinnedTopRows = table.getTopRows() ?? [];
+  const pinnedBottomRows = table.getBottomRows() ?? [];
+  const unpinnedRows = table
+    .getRowModel()
+    .rows.filter((row) => !row.getIsPinned());
+  const hasAnyRows =
+    pinnedTopRows.length + pinnedBottomRows.length + unpinnedRows.length > 0;
+
   return (
     <div className="overflow-hidden rounded-md border">
       <Table>
@@ -67,23 +87,30 @@ export function ExploreTable({ columns, data }: ExploreTableProps) {
                             ? "cursor-pointer select-none flex items-center gap-1"
                             : ""
                         }
-                        onClick={header.column.getToggleSortingHandler()}
+                        {...(header.column.getCanSort() && {
+                          role: "button",
+                          tabIndex: 0,
+                          onClick: header.column.getToggleSortingHandler(),
+                          onKeyDown: (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              header.column.getToggleSortingHandler()?.(e);
+                            }
+                          },
+                        })}
                       >
                         {flexRender(
                           header.column.columnDef.header,
                           header.getContext(),
                         )}
-                        {header.column.getCanSort() && (
-                          <>
-                            {header.column.getIsSorted() === "asc" ? (
-                              <ArrowUp size={14} />
-                            ) : header.column.getIsSorted() === "desc" ? (
-                              <ArrowDown size={14} />
-                            ) : (
-                              <ArrowUpDown size={14} />
-                            )}
-                          </>
-                        )}
+                        {header.column.getCanSort() &&
+                          (header.column.getIsSorted() === "asc" ? (
+                            <ArrowUp size={14} />
+                          ) : header.column.getIsSorted() === "desc" ? (
+                            <ArrowDown size={14} />
+                          ) : (
+                            <ArrowUpDown size={14} />
+                          ))}
                       </div>
                     )}
                   </TableHead>
@@ -93,19 +120,12 @@ export function ExploreTable({ columns, data }: ExploreTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows?.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-state={row.getIsSelected() && "selected"}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+          {hasAnyRows ? (
+            <>
+              {pinnedTopRows.map(renderRow)}
+              {unpinnedRows.map(renderRow)}
+              {pinnedBottomRows.map(renderRow)}
+            </>
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
