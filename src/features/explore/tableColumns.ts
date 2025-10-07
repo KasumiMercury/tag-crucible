@@ -1,6 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 
-import type { DirectoryNode } from "@/features/explore/types";
+import type { DirectoryTableRow } from "@/features/explore/types";
 
 function formatDateTime(isoString: string | null): string {
   if (!isoString) {
@@ -18,7 +18,7 @@ function formatDateTime(isoString: string | null): string {
   return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
 }
 
-export const exploreColumns: ColumnDef<DirectoryNode>[] = [
+export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
   {
     accessorKey: "name",
     header: "Name",
@@ -39,16 +39,16 @@ export const exploreColumns: ColumnDef<DirectoryNode>[] = [
     },
     enableSorting: true,
     sortingFn: (rowA, rowB) => {
-      const a = rowA.original;
-      const b = rowB.original;
+      const a = rowA.original.info;
+      const b = rowB.original.info;
 
       // Directories always come last when sorting by size
-      if (a.info.is_directory && !b.info.is_directory) return 1;
-      if (!a.info.is_directory && b.info.is_directory) return -1;
-      if (a.info.is_directory && b.info.is_directory) return 0;
+      if (a.is_directory && !b.is_directory) return 1;
+      if (!a.is_directory && b.is_directory) return -1;
+      if (a.is_directory && b.is_directory) return 0;
 
       // Sort files by numeric size
-      return a.info.size - b.info.size;
+      return a.size - b.size;
     },
   },
 ];

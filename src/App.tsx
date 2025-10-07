@@ -1,15 +1,23 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import "./App.css";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
 import { exploreColumns } from "@/features/explore/tableColumns";
 import type { DirectoryNode } from "@/features/explore/types";
+import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 
 function App() {
   const [directoryTree, setDirectoryTree] = useState<DirectoryNode | null>(
     null,
   );
   const [loading, setLoading] = useState(false);
+
+  const tableData = useMemo(() => {
+    if (!directoryTree) {
+      return null;
+    }
+    return buildExploreTableRows(directoryTree);
+  }, [directoryTree]);
 
   const scanDirectory = async () => {
     setLoading(true);
@@ -35,12 +43,12 @@ function App() {
         {loading ? "Scanning..." : "Scan"}
       </button>
       {loading && <div className="mt-2">Loading...</div>}
-      {directoryTree && (
+      {tableData && (
         <div className="mt-5 px-5 text-start">
           <ExploreTable
             columns={exploreColumns}
-            currentDirectoryInfo={directoryTree.info}
-            childNodes={directoryTree.children}
+            rows={tableData.rows}
+            pinnedRowIds={tableData.pinnedRowIds}
           />
         </div>
       )}

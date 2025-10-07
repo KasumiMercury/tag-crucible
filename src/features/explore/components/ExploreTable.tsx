@@ -2,6 +2,7 @@ import {
   type ColumnDef,
   type Row,
   type SortingState,
+  type RowPinningState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -18,56 +19,50 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { DirectoryNode, FileInfo } from "@/features/explore/types";
+import type { DirectoryTableRow } from "@/features/explore/types";
 
 interface ExploreTableProps {
-  columns: ColumnDef<DirectoryNode>[];
-  currentDirectoryInfo: FileInfo;
-  childNodes: DirectoryNode[];
+  columns: ColumnDef<DirectoryTableRow>[];
+  rows: DirectoryTableRow[];
+  pinnedRowIds?: string[];
 }
 
 export function ExploreTable({
   columns,
-  currentDirectoryInfo,
-  childNodes,
+  rows,
+  pinnedRowIds = [],
 }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const currentDirectory: DirectoryNode = useMemo(
-    () => ({
-      name: ".",
-      info: currentDirectoryInfo,
-      children: [],
-    }),
-    [currentDirectoryInfo],
-  );
+  const rowPinning = useMemo<RowPinningState | undefined>(() => {
+    if (pinnedRowIds.length === 0) {
+      return undefined;
+    }
+    return { top: pinnedRowIds };
+  }, [pinnedRowIds]);
 
-  const data = useMemo(
-    () => [currentDirectory, ...childNodes],
-    [currentDirectory, childNodes],
-  );
-
-  const rowPinning = useMemo(
-    () => ({ top: [currentDirectoryInfo.path] }),
-    [currentDirectoryInfo.path],
-  );
+  const tableState = useMemo<
+    { sorting: SortingState; rowPinning?: RowPinningState }
+  >(() => {
+    if (!rowPinning) {
+      return { sorting };
+    }
+    return { sorting, rowPinning };
+  }, [rowPinning, sorting]);
 
   const table = useReactTable({
-    data,
+    data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
-    enableRowPinning: true,
+    enableRowPinning: pinnedRowIds.length > 0,
     keepPinnedRows: true,
-    getRowId: (row) => row.info.path,
-    state: {
-      rowPinning,
-      sorting,
-    },
+    getRowId: (row) => row.id,
+    state: tableState,
   });
 
-  const renderRow = (row: Row<DirectoryNode>) => (
+  const renderRow = (row: Row<DirectoryTableRow>) => (
     <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
       {row.getVisibleCells().map((cell) => (
         <TableCell key={cell.id}>
