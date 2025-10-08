@@ -29,4 +29,3 @@ export function buildExploreTableRows(
     pinnedRowIds: [directory.info.path],
   };
 }
-

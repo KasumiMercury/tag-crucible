@@ -52,12 +52,39 @@ describe("buildExploreTableRows", () => {
       isCurrentDirectory: true,
     });
 
-    expect(rows.slice(1).map((row) => row.name)).toEqual(["dir", "example.txt"]);
+    expect(rows.slice(1).map((row) => row.name)).toEqual([
+      "dir",
+      "example.txt",
+    ]);
     expect(rows[1]).toMatchObject({
       id: "/root/dir",
       isCurrentDirectory: false,
     });
 
     expect(pinnedRowIds).toEqual([baseDirectoryInfo.path]);
+  });
+
+  it("uses custom label when provided", () => {
+    const { rows } = buildExploreTableRows(sampleNode, {
+      currentDirectoryLabel: "/custom/path",
+    });
+
+    expect(rows[0].name).toBe("/custom/path");
+  });
+
+  it("accepts formatted path as custom label", () => {
+    const { rows } = buildExploreTableRows(sampleNode, {
+      currentDirectoryLabel: "/Use/exa/projects",
+    });
+
+    expect(rows[0].name).toBe("/Use/exa/projects");
+  });
+
+  it("accepts shortened path with ellipsis as custom label", () => {
+    const { rows } = buildExploreTableRows(sampleNode, {
+      currentDirectoryLabel: "…/subdir",
+    });
+
+    expect(rows[0].name).toBe("…/subdir");
   });
 });

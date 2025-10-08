@@ -41,9 +41,10 @@ export function ExploreTable({
     return { top: pinnedRowIds };
   }, [pinnedRowIds]);
 
-  const tableState = useMemo<
-    { sorting: SortingState; rowPinning?: RowPinningState }
-  >(() => {
+  const tableState = useMemo<{
+    sorting: SortingState;
+    rowPinning?: RowPinningState;
+  }>(() => {
     if (!rowPinning) {
       return { sorting };
     }

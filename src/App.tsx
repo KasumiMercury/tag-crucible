@@ -5,6 +5,7 @@ import { ExploreTable } from "@/features/explore/components/ExploreTable";
 import { exploreColumns } from "@/features/explore/tableColumns";
 import type { DirectoryNode } from "@/features/explore/types";
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
+import { formatPathForDisplay } from "@/features/explore/utils/formatPathForDisplay";
 
 function App() {
   const [directoryTree, setDirectoryTree] = useState<DirectoryNode | null>(
@@ -16,7 +17,10 @@ function App() {
     if (!directoryTree) {
       return null;
     }
-    return buildExploreTableRows(directoryTree);
+    const formattedPath = formatPathForDisplay(directoryTree.info.path, 50);
+    return buildExploreTableRows(directoryTree, {
+      currentDirectoryLabel: formattedPath,
+    });
   }, [directoryTree]);
 
   const scanDirectory = async () => {
