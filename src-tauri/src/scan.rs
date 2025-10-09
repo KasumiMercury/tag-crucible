@@ -12,223 +12,223 @@ use walkdir::{DirEntry, WalkDir};
 #[derive(Error, Debug, Serialize)]
 #[serde(tag = "type", content = "message")]
 pub enum ScanError {
-  #[error("Failed to get current directory: {0}")]
-  CurrentDir(String),
+    #[error("Failed to get current directory: {0}")]
+    CurrentDir(String),
 
-  #[error("Root path not found in scan results: {0:?}")]
-  MissingRoot(PathBuf),
+    #[error("Root path not found in scan results: {0:?}")]
+    MissingRoot(PathBuf),
 
-  #[error("IO error: {0}")]
-  Io(String),
+    #[error("IO error: {0}")]
+    Io(String),
 }
 
 // File/Directory information structure
 #[derive(Serialize, Clone)]
 pub struct FileInfo {
-  path: PathBuf,
-  is_directory: bool,
-  is_symlink: bool,
-  size: u64,
-  modified: Option<String>,
+    path: PathBuf,
+    is_directory: bool,
+    is_symlink: bool,
+    size: u64,
+    modified: Option<String>,
 }
 
 // Tree node structure
 #[derive(Serialize)]
 pub struct DirectoryNode {
-  name: String,
-  info: FileInfo,
-  #[serde(default)]
-  children: Vec<DirectoryNode>,
+    name: String,
+    info: FileInfo,
+    #[serde(default)]
+    children: Vec<DirectoryNode>,
 }
 
 // Generic directory scanning
 #[tauri::command]
 pub async fn scan_directory(path: PathBuf, depth: usize) -> Result<DirectoryNode, ScanError> {
-  perform_scan(&path, depth)
+    perform_scan(&path, depth)
 }
 
 // Scan current working directory
 #[tauri::command]
 pub async fn scan_current_directory() -> Result<DirectoryNode, ScanError> {
-  let current_dir = env::current_dir().map_err(|e| ScanError::CurrentDir(e.to_string()))?;
-  perform_scan(&current_dir, 2)
+    let current_dir = env::current_dir().map_err(|e| ScanError::CurrentDir(e.to_string()))?;
+    perform_scan(&current_dir, 2)
 }
 
 fn perform_scan(path: &Path, depth: usize) -> Result<DirectoryNode, ScanError> {
-  let entries = collect_entries(path, depth)?;
-  build_directory_tree(path, &entries)
+    let entries = collect_entries(path, depth)?;
+    build_directory_tree(path, &entries)
 }
 
 fn collect_entries(root: &Path, depth: usize) -> Result<Vec<FileInfo>, ScanError> {
-  let mut entries = Vec::new();
+    let mut entries = Vec::new();
 
-  for entry in WalkDir::new(root).max_depth(depth) {
-    let entry = entry.map_err(|e| ScanError::Io(e.to_string()))?;
-    entries.push(to_file_info(&entry)?);
-  }
+    for entry in WalkDir::new(root).max_depth(depth) {
+        let entry = entry.map_err(|e| ScanError::Io(e.to_string()))?;
+        entries.push(to_file_info(&entry)?);
+    }
 
-  Ok(entries)
+    Ok(entries)
 }
 
 fn to_file_info(entry: &DirEntry) -> Result<FileInfo, ScanError> {
-  let metadata = entry.metadata().map_err(|e| ScanError::Io(e.to_string()))?;
+    let metadata = entry.metadata().map_err(|e| ScanError::Io(e.to_string()))?;
 
-  let modified = metadata.modified().ok().map(system_time_to_rfc3339);
+    let modified = metadata.modified().ok().map(system_time_to_rfc3339);
 
-  Ok(FileInfo {
-    path: entry.path().to_path_buf(),
-    is_directory: metadata.is_dir(),
-    is_symlink: metadata.file_type().is_symlink(),
-    size: metadata.len(),
-    modified,
-  })
+    Ok(FileInfo {
+        path: entry.path().to_path_buf(),
+        is_directory: metadata.is_dir(),
+        is_symlink: metadata.file_type().is_symlink(),
+        size: metadata.len(),
+        modified,
+    })
 }
 
 fn system_time_to_rfc3339(time: SystemTime) -> String {
-  DateTime::<Utc>::from(time).to_rfc3339()
+    DateTime::<Utc>::from(time).to_rfc3339()
 }
 
 fn build_directory_tree(root: &Path, entries: &[FileInfo]) -> Result<DirectoryNode, ScanError> {
-  let mut adjacency: HashMap<PathBuf, Vec<usize>> = HashMap::new();
+    let mut adjacency: HashMap<PathBuf, Vec<usize>> = HashMap::new();
 
-  for (idx, entry) in entries.iter().enumerate() {
-    if let Some(parent) = entry.path.parent() {
-      adjacency.entry(parent.to_path_buf()).or_default().push(idx);
+    for (idx, entry) in entries.iter().enumerate() {
+        if let Some(parent) = entry.path.parent() {
+            adjacency.entry(parent.to_path_buf()).or_default().push(idx);
+        }
     }
-  }
 
-  for children in adjacency.values_mut() {
-    children.sort_unstable();
-  }
+    for children in adjacency.values_mut() {
+        children.sort_unstable();
+    }
 
-  let root_index = entries
-    .iter()
-    .position(|entry| entry.path == root)
-    .ok_or_else(|| ScanError::MissingRoot(root.to_path_buf()))?;
+    let root_index = entries
+        .iter()
+        .position(|entry| entry.path == root)
+        .ok_or_else(|| ScanError::MissingRoot(root.to_path_buf()))?;
 
-  Ok(build_node(entries, &adjacency, root_index))
+    Ok(build_node(entries, &adjacency, root_index))
 }
 
 fn build_node(
-  entries: &[FileInfo],
-  adjacency: &HashMap<PathBuf, Vec<usize>>,
-  index: usize,
+    entries: &[FileInfo],
+    adjacency: &HashMap<PathBuf, Vec<usize>>,
+    index: usize,
 ) -> DirectoryNode {
-  let info = entries[index].clone();
-  let name = info
-    .path
-    .file_name()
-    .map(|name| name.to_string_lossy().to_string())
-    .unwrap_or_else(|| info.path.to_string_lossy().to_string());
+    let info = entries[index].clone();
+    let name = info
+        .path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| info.path.to_string_lossy().to_string());
 
-  let mut children = adjacency
-    .get(&info.path)
-    .into_iter()
-    .flat_map(|indices| indices.iter().copied())
-    .filter(|&child_idx| child_idx != index)
-    .map(|child_idx| build_node(entries, adjacency, child_idx))
-    .collect::<Vec<_>>();
+    let mut children = adjacency
+        .get(&info.path)
+        .into_iter()
+        .flat_map(|indices| indices.iter().copied())
+        .filter(|&child_idx| child_idx != index)
+        .map(|child_idx| build_node(entries, adjacency, child_idx))
+        .collect::<Vec<_>>();
 
-  children.sort_by(compare_nodes);
+    children.sort_by(compare_nodes);
 
-  DirectoryNode {
-    name,
-    info,
-    children,
-  }
+    DirectoryNode {
+        name,
+        info,
+        children,
+    }
 }
 
 fn compare_nodes(a: &DirectoryNode, b: &DirectoryNode) -> Ordering {
-  match (a.info.is_directory, b.info.is_directory) {
-    (true, false) => Ordering::Less,
-    (false, true) => Ordering::Greater,
-    _ => a.name.cmp(&b.name),
-  }
+    match (a.info.is_directory, b.info.is_directory) {
+        (true, false) => Ordering::Less,
+        (false, true) => Ordering::Greater,
+        _ => a.name.cmp(&b.name),
+    }
 }
 
 #[cfg(test)]
 mod tests {
-  use super::*;
+    use super::*;
 
-  fn file_info(path: &str, is_directory: bool) -> FileInfo {
-    FileInfo {
-      path: PathBuf::from(path),
-      is_directory,
-      is_symlink: false,
-      size: 0,
-      modified: None,
+    fn file_info(path: &str, is_directory: bool) -> FileInfo {
+        FileInfo {
+            path: PathBuf::from(path),
+            is_directory,
+            is_symlink: false,
+            size: 0,
+            modified: None,
+        }
     }
-  }
 
-  #[test]
-  fn build_tree_simple() {
-    let root = PathBuf::from("/root");
-    let entries = vec![
-      file_info("/root", true),
-      file_info("/root/file1.txt", false),
-      file_info("/root/file2.txt", false),
-    ];
+    #[test]
+    fn build_tree_simple() {
+        let root = PathBuf::from("/root");
+        let entries = vec![
+            file_info("/root", true),
+            file_info("/root/file1.txt", false),
+            file_info("/root/file2.txt", false),
+        ];
 
-    let tree = build_directory_tree(root.as_path(), &entries).unwrap();
-    assert_eq!(tree.info.path, PathBuf::from("/root"));
-    assert_eq!(tree.children.len(), 2);
-    assert_eq!(tree.children[0].info.path, PathBuf::from("/root/file1.txt"));
-    assert_eq!(tree.children[1].info.path, PathBuf::from("/root/file2.txt"));
-  }
+        let tree = build_directory_tree(root.as_path(), &entries).unwrap();
+        assert_eq!(tree.info.path, PathBuf::from("/root"));
+        assert_eq!(tree.children.len(), 2);
+        assert_eq!(tree.children[0].info.path, PathBuf::from("/root/file1.txt"));
+        assert_eq!(tree.children[1].info.path, PathBuf::from("/root/file2.txt"));
+    }
 
-  #[test]
-  fn build_tree_root_only() {
-    let root = PathBuf::from("/root");
-    let entries = vec![file_info("/root", true)];
+    #[test]
+    fn build_tree_root_only() {
+        let root = PathBuf::from("/root");
+        let entries = vec![file_info("/root", true)];
 
-    let tree = build_directory_tree(root.as_path(), &entries).unwrap();
-    assert_eq!(tree.info.path, PathBuf::from("/root"));
-    assert!(tree.children.is_empty());
-  }
+        let tree = build_directory_tree(root.as_path(), &entries).unwrap();
+        assert_eq!(tree.info.path, PathBuf::from("/root"));
+        assert!(tree.children.is_empty());
+    }
 
-  #[test]
-  fn build_tree_nested() {
-    let root = PathBuf::from("/root");
-    let entries = vec![
-      file_info("/root", true),
-      file_info("/root/dir1", true),
-      file_info("/root/dir1/file.txt", false),
-      file_info("/root/dir2", true),
-      file_info("/root/dir2/file_a.txt", false),
-    ];
+    #[test]
+    fn build_tree_nested() {
+        let root = PathBuf::from("/root");
+        let entries = vec![
+            file_info("/root", true),
+            file_info("/root/dir1", true),
+            file_info("/root/dir1/file.txt", false),
+            file_info("/root/dir2", true),
+            file_info("/root/dir2/file_a.txt", false),
+        ];
 
-    let tree = build_directory_tree(root.as_path(), &entries).unwrap();
-    assert_eq!(tree.children.len(), 2);
+        let tree = build_directory_tree(root.as_path(), &entries).unwrap();
+        assert_eq!(tree.children.len(), 2);
 
-    let dir1 = tree
-      .children
-      .iter()
-      .find(|child| child.info.path == PathBuf::from("/root/dir1"))
-      .unwrap();
-    assert_eq!(dir1.children.len(), 1);
-    assert_eq!(
-      dir1.children[0].info.path,
-      PathBuf::from("/root/dir1/file.txt")
-    );
+        let dir1 = tree
+            .children
+            .iter()
+            .find(|child| child.info.path == PathBuf::from("/root/dir1"))
+            .unwrap();
+        assert_eq!(dir1.children.len(), 1);
+        assert_eq!(
+            dir1.children[0].info.path,
+            PathBuf::from("/root/dir1/file.txt")
+        );
 
-    let dir2 = tree
-      .children
-      .iter()
-      .find(|child| child.info.path == PathBuf::from("/root/dir2"))
-      .unwrap();
-    assert_eq!(dir2.children.len(), 1);
-    assert_eq!(
-      dir2.children[0].info.path,
-      PathBuf::from("/root/dir2/file_a.txt")
-    );
-  }
+        let dir2 = tree
+            .children
+            .iter()
+            .find(|child| child.info.path == PathBuf::from("/root/dir2"))
+            .unwrap();
+        assert_eq!(dir2.children.len(), 1);
+        assert_eq!(
+            dir2.children[0].info.path,
+            PathBuf::from("/root/dir2/file_a.txt")
+        );
+    }
 
-  #[test]
-  fn build_tree_missing_root() {
-    let root = PathBuf::from("/root");
-    let entries = vec![file_info("/other", true)];
+    #[test]
+    fn build_tree_missing_root() {
+        let root = PathBuf::from("/root");
+        let entries = vec![file_info("/other", true)];
 
-    let result = build_directory_tree(root.as_path(), &entries);
-    assert!(matches!(result, Err(ScanError::MissingRoot(_))));
-  }
+        let result = build_directory_tree(root.as_path(), &entries);
+        assert!(matches!(result, Err(ScanError::MissingRoot(_))));
+    }
 }

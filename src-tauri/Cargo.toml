@@ -26,4 +26,6 @@ walkdir = "2.5.0"
 thiserror = "2.0.17"
 chrono = "0.4"
 duckdb = { version = "1.4.1", features = ["bundled"] }
+tauri-plugin-log = "2"
+log = "0.4"
 
