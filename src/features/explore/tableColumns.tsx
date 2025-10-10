@@ -1,4 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
+import { Square, SquareCheckBig } from "lucide-react";
 
 import type { DirectoryTableRow } from "@/features/explore/types";
 
@@ -19,6 +20,18 @@ function formatDateTime(isoString: string | null): string {
 }
 
 export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
+  {
+    id: "select",
+    header: "",
+    cell: ({ row }) => {
+      return row.getIsSelected() ? (
+        <SquareCheckBig size={18} className="text-blue-600" />
+      ) : (
+        <Square size={18} className="text-gray-400" />
+      );
+    },
+    enableSorting: false,
+  },
   {
     accessorKey: "name",
     header: "Name",

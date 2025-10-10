@@ -3,6 +3,7 @@ import {
   type Row,
   type SortingState,
   type RowPinningState,
+  type RowSelectionState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -33,6 +34,7 @@ export function ExploreTable({
   pinnedRowIds = [],
 }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   const rowPinning = useMemo<RowPinningState | undefined>(() => {
     if (pinnedRowIds.length === 0) {
@@ -44,12 +46,13 @@ export function ExploreTable({
   const tableState = useMemo<{
     sorting: SortingState;
     rowPinning?: RowPinningState;
+    rowSelection: RowSelectionState;
   }>(() => {
     if (!rowPinning) {
-      return { sorting };
+      return { sorting, rowSelection };
     }
-    return { sorting, rowPinning };
-  }, [rowPinning, sorting]);
+    return { sorting, rowPinning, rowSelection };
+  }, [rowPinning, sorting, rowSelection]);
 
   const table = useReactTable({
     data: rows,
@@ -60,11 +63,18 @@ export function ExploreTable({
     enableRowPinning: pinnedRowIds.length > 0,
     keepPinnedRows: true,
     getRowId: (row) => row.id,
+    enableRowSelection: true,
+    onRowSelectionChange: setRowSelection,
     state: tableState,
   });
 
   const renderRow = (row: Row<DirectoryTableRow>) => (
-    <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+    <TableRow
+      key={row.id}
+      data-state={row.getIsSelected() && "selected"}
+      onClick={row.getToggleSelectedHandler()}
+      className="cursor-pointer"
+    >
       {row.getVisibleCells().map((cell) => (
         <TableCell key={cell.id}>
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
