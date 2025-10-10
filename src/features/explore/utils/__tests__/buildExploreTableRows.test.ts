@@ -41,50 +41,31 @@ describe("buildExploreTableRows", () => {
     ],
   };
 
-  it("adds current directory row with '.' label and returns pinned ID", () => {
-    const { rows, pinnedRowIds } = buildExploreTableRows(sampleNode);
+  it("returns rows for each child directory entry", () => {
+    const { rows } = buildExploreTableRows(sampleNode);
 
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
-      id: baseDirectoryInfo.path,
-      name: ".",
-      info: baseDirectoryInfo,
-      isCurrentDirectory: true,
-    });
-
-    expect(rows.slice(1).map((row) => row.name)).toEqual([
-      "dir",
-      "example.txt",
-    ]);
-    expect(rows[1]).toMatchObject({
       id: "/root/dir",
-      isCurrentDirectory: false,
+      name: "dir",
+      info: sampleNode.children[0]!.info,
     });
-
-    expect(pinnedRowIds).toEqual([baseDirectoryInfo.path]);
+    expect(rows[1]).toMatchObject({
+      id: "/root/example.txt",
+      name: "example.txt",
+      info: sampleNode.children[1]!.info,
+    });
   });
 
-  it("uses custom label when provided", () => {
-    const { rows } = buildExploreTableRows(sampleNode, {
-      currentDirectoryLabel: "/custom/path",
-    });
+  it("returns an empty list when the directory has no children", () => {
+    const emptyNode: DirectoryNode = {
+      name: "empty",
+      info: baseDirectoryInfo,
+      children: [],
+    };
 
-    expect(rows[0].name).toBe("/custom/path");
-  });
+    const { rows } = buildExploreTableRows(emptyNode);
 
-  it("accepts formatted path as custom label", () => {
-    const { rows } = buildExploreTableRows(sampleNode, {
-      currentDirectoryLabel: "/Use/exa/projects",
-    });
-
-    expect(rows[0].name).toBe("/Use/exa/projects");
-  });
-
-  it("accepts shortened path with ellipsis as custom label", () => {
-    const { rows } = buildExploreTableRows(sampleNode, {
-      currentDirectoryLabel: "…/subdir",
-    });
-
-    expect(rows[0].name).toBe("…/subdir");
+    expect(rows).toEqual([]);
   });
 });

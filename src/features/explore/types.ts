@@ -16,10 +16,8 @@ export interface DirectoryTableRow {
   id: string;
   name: string;
   info: FileInfo;
-  isCurrentDirectory: boolean;
 }
 
 export interface ExploreTableData {
   rows: DirectoryTableRow[];
-  pinnedRowIds: string[];
 }

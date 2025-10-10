@@ -1,12 +1,11 @@
 import {
   type ColumnDef,
-  type Row,
-  type SortingState,
-  type RowPinningState,
-  type RowSelectionState,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
+  type Row,
+  type RowSelectionState,
+  type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
@@ -25,14 +24,12 @@ import type { DirectoryTableRow } from "@/features/explore/types";
 interface ExploreTableProps {
   columns: ColumnDef<DirectoryTableRow>[];
   rows: DirectoryTableRow[];
-  pinnedRowIds?: string[];
   onSelectionChange?: (selectedRows: DirectoryTableRow[]) => void;
 }
 
 export function ExploreTable({
   columns,
   rows,
-  pinnedRowIds = [],
   onSelectionChange,
 }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -58,23 +55,10 @@ export function ExploreTable({
     });
   };
 
-  const rowPinning = useMemo<RowPinningState | undefined>(() => {
-    if (pinnedRowIds.length === 0) {
-      return undefined;
-    }
-    return { top: pinnedRowIds };
-  }, [pinnedRowIds]);
-
-  const tableState = useMemo<{
-    sorting: SortingState;
-    rowPinning?: RowPinningState;
-    rowSelection: RowSelectionState;
-  }>(() => {
-    if (!rowPinning) {
-      return { sorting, rowSelection };
-    }
-    return { sorting, rowPinning, rowSelection };
-  }, [rowPinning, sorting, rowSelection]);
+  const tableState = useMemo(
+    () => ({ sorting, rowSelection }),
+    [sorting, rowSelection],
+  );
 
   const table = useReactTable({
     data: rows,
@@ -82,8 +66,6 @@ export function ExploreTable({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
-    enableRowPinning: pinnedRowIds.length > 0,
-    keepPinnedRows: true,
     getRowId: (row) => row.id,
     enableRowSelection: true,
     onRowSelectionChange: handleRowSelectionChange,
@@ -105,13 +87,8 @@ export function ExploreTable({
     </TableRow>
   );
 
-  const pinnedTopRows = table.getTopRows() ?? [];
-  const pinnedBottomRows = table.getBottomRows() ?? [];
-  const unpinnedRows = table
-    .getRowModel()
-    .rows.filter((row) => !row.getIsPinned());
-  const hasAnyRows =
-    pinnedTopRows.length + pinnedBottomRows.length + unpinnedRows.length > 0;
+  const visibleRows = table.getRowModel().rows;
+  const hasAnyRows = visibleRows.length > 0;
 
   return (
     <div className="overflow-hidden rounded-md border">
@@ -163,11 +140,7 @@ export function ExploreTable({
         </TableHeader>
         <TableBody>
           {hasAnyRows ? (
-            <>
-              {pinnedTopRows.map(renderRow)}
-              {unpinnedRows.map(renderRow)}
-              {pinnedBottomRows.map(renderRow)}
-            </>
+            visibleRows.map(renderRow)
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">

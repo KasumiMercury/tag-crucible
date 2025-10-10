@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useMemo, useState } from "react";
 import "./App.css";
+import { ScanSearch, Tags } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
 import { exploreColumns } from "@/features/explore/tableColumns";
 import type {
@@ -10,8 +12,6 @@ import type {
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 import { formatPathForDisplay } from "@/features/explore/utils/formatPathForDisplay";
 import { TaggingSidebar } from "@/features/tagging/components/TaggingSidebar";
-import { Button } from "@/components/ui/button";
-import { Tags } from "lucide-react";
 
 function App() {
   const [directoryTree, setDirectoryTree] = useState<DirectoryNode | null>(
@@ -25,10 +25,14 @@ function App() {
     if (!directoryTree) {
       return null;
     }
-    const formattedPath = formatPathForDisplay(directoryTree.info.path, 50);
-    return buildExploreTableRows(directoryTree, {
-      currentDirectoryLabel: formattedPath,
-    });
+    return buildExploreTableRows(directoryTree);
+  }, [directoryTree]);
+
+  const currentDirectoryLabel = useMemo(() => {
+    if (!directoryTree) {
+      return null;
+    }
+    return formatPathForDisplay(directoryTree.info.path, 50);
   }, [directoryTree]);
 
   const selectedPaths = useMemo(
@@ -85,23 +89,34 @@ function App() {
           </div>
           {tableData && (
             <div className="flex flex-col gap-2 text-start">
-              {!isSidebarOpen && (
-                <div className="flex justify-end">
+              {currentDirectoryLabel && (
+                <div className="flex items-center gap-2">
+                  <span title={directoryTree?.info.path}></span>
                   <Button
                     type="button"
                     variant="outline"
-                    size="icon-sm"
-                    onClick={() => setIsSidebarOpen(true)}
-                    aria-label="Open tagging sidebar"
+                    alia-label="Scan directory"
+                    className="flex-1 truncate text-sm"
                   >
-                    <Tags className="size-4" aria-hidden />
+				<ScanSearch className="size-4 mr-2" aria-hidden />
+                    {currentDirectoryLabel}
                   </Button>
+                  {!isSidebarOpen && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsSidebarOpen(true)}
+                      aria-label="Open tagging sidebar"
+                      className="ml-auto"
+                    >
+                      <Tags className="size-4" aria-hidden />
+                    </Button>
+                  )}
                 </div>
               )}
               <ExploreTable
                 columns={exploreColumns}
                 rows={tableData.rows}
-                pinnedRowIds={tableData.pinnedRowIds}
                 onSelectionChange={handleSelectionChange}
               />
             </div>
