@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Combine, SquareStack, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +8,18 @@ interface TaggingSidebarProps {
   isOpen: boolean;
   paths: string[];
   onClose: () => void;
+  showAggregateToggle?: boolean;
+  aggregateModeEnabled?: boolean;
+  onAggregateToggle?: () => void;
 }
 
 export function TaggingSidebar({
   isOpen,
   paths,
   onClose,
+  showAggregateToggle = false,
+  aggregateModeEnabled = false,
+  onAggregateToggle,
 }: TaggingSidebarProps) {
   return (
     <aside
@@ -54,6 +60,26 @@ export function TaggingSidebar({
             )}
           </div>
           <div className="flex flex-col mt-auto gap-2">
+            {showAggregateToggle && onAggregateToggle && (
+              <Button
+                type="button"
+                variant={aggregateModeEnabled ? "default" : "outline"}
+                className="w-full"
+                onClick={onAggregateToggle}
+              >
+                {aggregateModeEnabled ? (
+                  <>
+                    <SquareStack className="mr-2 size-4" aria-hidden />
+                    Tag Individually
+                  </>
+                ) : (
+                  <>
+                    <Combine className="mr-2 size-4" aria-hidden />
+                    Tag as Group
+                  </>
+                )}
+              </Button>
+            )}
             <Input type="text" placeholder="tag name" />
             <Button className="w-full">Add Tag</Button>
           </div>

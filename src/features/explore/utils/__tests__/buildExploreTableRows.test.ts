@@ -48,12 +48,12 @@ describe("buildExploreTableRows", () => {
     expect(rows[0]).toMatchObject({
       id: "/root/dir",
       name: "dir",
-      info: sampleNode.children[0]!.info,
+      info: sampleNode.children[0]?.info,
     });
     expect(rows[1]).toMatchObject({
       id: "/root/example.txt",
       name: "example.txt",
-      info: sampleNode.children[1]!.info,
+      info: sampleNode.children[1]?.info,
     });
   });
 

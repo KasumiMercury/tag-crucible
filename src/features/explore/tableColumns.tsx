@@ -22,7 +22,24 @@ function formatDateTime(isoString: string | null): string {
 export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
   {
     id: "select",
-    header: "",
+    header: ({ table }) => {
+      const isAllSelected = table.getIsAllRowsSelected();
+      const isSomeSelected = table.getIsSomeRowsSelected();
+
+      return (
+        <button
+          type="button"
+          onClick={table.getToggleAllRowsSelectedHandler()}
+          className="cursor-pointer"
+        >
+          {isAllSelected || isSomeSelected ? (
+            <SquareCheckBig size={18} className="text-blue-600" />
+          ) : (
+            <Square size={18} className="text-gray-400" />
+          )}
+        </button>
+      );
+    },
     cell: ({ row }) => {
       return row.getIsSelected() ? (
         <SquareCheckBig size={18} className="text-blue-600" />

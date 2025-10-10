@@ -20,6 +20,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DirectoryTableRow[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAggregateTaggingEnabled, setIsAggregateTaggingEnabled] =
+    useState(false);
 
   const tableData = useMemo(() => {
     if (!directoryTree) {
@@ -35,10 +37,28 @@ function App() {
     return formatPathForDisplay(directoryTree.info.path, 50);
   }, [directoryTree]);
 
-  const selectedPaths = useMemo(
+  const selectedRowPaths = useMemo(
     () => selectedRows.map((row) => row.info.path),
     [selectedRows],
   );
+
+  const isAllRowsSelected = useMemo(() => {
+    if (!tableData) {
+      return false;
+    }
+    const totalRowCount = tableData.rows.length;
+    if (totalRowCount === 0) {
+      return false;
+    }
+    return selectedRows.length === totalRowCount;
+  }, [tableData, selectedRows]);
+
+  const sidebarPaths = useMemo(() => {
+    if (isAggregateTaggingEnabled && directoryTree) {
+      return [directoryTree.info.path];
+    }
+    return selectedRowPaths;
+  }, [directoryTree, isAggregateTaggingEnabled, selectedRowPaths]);
 
   const handleSelectionChange = (rows: DirectoryTableRow[]) => {
     setSelectedRows(rows);
@@ -47,16 +67,32 @@ function App() {
     } else {
       setIsSidebarOpen(false);
     }
+    const willSelectAllRows =
+      !!tableData &&
+      tableData.rows.length > 0 &&
+      rows.length === tableData.rows.length;
+    if (!willSelectAllRows) {
+      setIsAggregateTaggingEnabled(false);
+    }
   };
 
   const closeSidebar = () => {
     setIsSidebarOpen(false);
+    setIsAggregateTaggingEnabled(false);
+  };
+
+  const toggleAggregateTagging = () => {
+    if (!isAllRowsSelected) {
+      return;
+    }
+    setIsAggregateTaggingEnabled((previous) => !previous);
   };
 
   const scanDirectory = async () => {
     setLoading(true);
     setSelectedRows([]);
     setIsSidebarOpen(false);
+    setIsAggregateTaggingEnabled(false);
     try {
       const result = await invoke<DirectoryNode>("scan_current_directory");
       setDirectoryTree(result);
@@ -98,7 +134,7 @@ function App() {
                     alia-label="Scan directory"
                     className="flex-1 truncate text-sm"
                   >
-				<ScanSearch className="size-4 mr-2" aria-hidden />
+                    <ScanSearch className="size-4 mr-2" aria-hidden />
                     {currentDirectoryLabel}
                   </Button>
                   {!isSidebarOpen && (
@@ -124,8 +160,11 @@ function App() {
         </div>
         <TaggingSidebar
           isOpen={isSidebarOpen}
-          paths={selectedPaths}
+          paths={sidebarPaths}
           onClose={closeSidebar}
+          showAggregateToggle={isAllRowsSelected}
+          aggregateModeEnabled={isAggregateTaggingEnabled}
+          onAggregateToggle={toggleAggregateTagging}
         />
       </div>
     </main>
