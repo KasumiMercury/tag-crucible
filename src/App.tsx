@@ -11,7 +11,10 @@ import type {
 } from "@/features/explore/types";
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 import { formatPathForDisplay } from "@/features/explore/utils/formatPathForDisplay";
-import { TaggingSidebar } from "@/features/tagging/components/TaggingSidebar";
+import {
+  TaggingSidebar,
+  type TaggingSidebarItem,
+} from "@/features/tagging/components/TaggingSidebar";
 
 function App() {
   const [directoryTree, setDirectoryTree] = useState<DirectoryNode | null>(
@@ -37,11 +40,6 @@ function App() {
     return formatPathForDisplay(directoryTree.info.path, 50);
   }, [directoryTree]);
 
-  const selectedRowPaths = useMemo(
-    () => selectedRows.map((row) => row.info.path),
-    [selectedRows],
-  );
-
   const isAllRowsSelected = useMemo(() => {
     if (!tableData) {
       return false;
@@ -53,12 +51,20 @@ function App() {
     return selectedRows.length === totalRowCount;
   }, [tableData, selectedRows]);
 
-  const sidebarPaths = useMemo(() => {
+  const sidebarItems = useMemo<TaggingSidebarItem[]>(() => {
     if (isAggregateTaggingEnabled && directoryTree) {
-      return [directoryTree.info.path];
+      return [
+        {
+          absolutePath: directoryTree.info.path,
+          displayName: directoryTree.info.path,
+        },
+      ];
     }
-    return selectedRowPaths;
-  }, [directoryTree, isAggregateTaggingEnabled, selectedRowPaths]);
+    return selectedRows.map((row) => ({
+      absolutePath: row.info.path,
+      displayName: row.name,
+    }));
+  }, [directoryTree, isAggregateTaggingEnabled, selectedRows]);
 
   const handleSelectionChange = (rows: DirectoryTableRow[]) => {
     setSelectedRows(rows);
@@ -160,7 +166,7 @@ function App() {
         </div>
         <TaggingSidebar
           isOpen={isSidebarOpen}
-          paths={sidebarPaths}
+          items={sidebarItems}
           onClose={closeSidebar}
           showAggregateToggle={isAllRowsSelected}
           aggregateModeEnabled={isAggregateTaggingEnabled}

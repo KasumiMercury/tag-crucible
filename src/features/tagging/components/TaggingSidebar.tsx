@@ -4,9 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+export interface TaggingSidebarItem {
+  absolutePath: string;
+  displayName: string;
+}
+
 interface TaggingSidebarProps {
   isOpen: boolean;
-  paths: string[];
+  items: TaggingSidebarItem[];
   onClose: () => void;
   showAggregateToggle?: boolean;
   aggregateModeEnabled?: boolean;
@@ -15,7 +20,7 @@ interface TaggingSidebarProps {
 
 export function TaggingSidebar({
   isOpen,
-  paths,
+  items,
   onClose,
   showAggregateToggle = false,
   aggregateModeEnabled = false,
@@ -44,17 +49,17 @@ export function TaggingSidebar({
             </Button>
           </div>
           <div className="flex-1 overflow-y-auto space-y-2">
-            {paths.length === 0 ? (
+            {items.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No items selected.
               </p>
             ) : (
-              paths.map((path) => (
+              items.map((item) => (
                 <code
-                  key={`${path}`}
+                  key={item.absolutePath}
                   className="block rounded-md border border-border bg-background px-3 py-2 text-left text-sm font-mono break-words"
                 >
-                  {path}
+                  {item.displayName}
                 </code>
               ))
             )}
