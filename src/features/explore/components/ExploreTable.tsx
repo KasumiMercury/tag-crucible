@@ -10,7 +10,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Table,
@@ -26,15 +26,37 @@ interface ExploreTableProps {
   columns: ColumnDef<DirectoryTableRow>[];
   rows: DirectoryTableRow[];
   pinnedRowIds?: string[];
+  onSelectionChange?: (selectedRows: DirectoryTableRow[]) => void;
 }
 
 export function ExploreTable({
   columns,
   rows,
   pinnedRowIds = [],
+  onSelectionChange,
 }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const selectionChangeCallbackRef = useRef(onSelectionChange);
+
+  useEffect(() => {
+    selectionChangeCallbackRef.current = onSelectionChange;
+  }, [onSelectionChange]);
+
+  const handleRowSelectionChange = (
+    updater:
+      | RowSelectionState
+      | ((prev: RowSelectionState) => RowSelectionState),
+  ) => {
+    setRowSelection((previous) => {
+      const next = typeof updater === "function" ? updater(previous) : updater;
+      if (onSelectionChange) {
+        const selectedRows = rows.filter((row) => next[row.id]);
+        onSelectionChange(selectedRows);
+      }
+      return next;
+    });
+  };
 
   const rowPinning = useMemo<RowPinningState | undefined>(() => {
     if (pinnedRowIds.length === 0) {
@@ -64,7 +86,7 @@ export function ExploreTable({
     keepPinnedRows: true,
     getRowId: (row) => row.id,
     enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: handleRowSelectionChange,
     state: tableState,
   });
 
