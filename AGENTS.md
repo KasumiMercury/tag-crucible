@@ -1,35 +1,19 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Application source lives in `src/`; React entry points are `src/main.tsx` and `src/App.tsx`, feature code should sit under `src/<feature>/...`.
-- Shared assets (images, fonts) belong in `src/assets/`; styles should sit next to components as `ComponentName.css`.
-- Desktop shell code is in `src-tauri/src/` with `main.rs` and helper modules; adjust app capabilities under `src-tauri/capabilities/` and config in `src-tauri/tauri.conf.json`.
-- Static public files ship from `public/`; root-level tooling configs include `tsconfig*.json`, `vite.config.ts`, and `biome.json`.
+The Vite/React front end lives in `src/`, with `src/main.tsx` bootstrapping `src/App.tsx`. Create feature folders under `src/<feature>` and colocate UI, hooks, and tests there. Shared images or fonts belong in `src/assets/`, while component styles should sit next to the component as `ComponentName.css`. Desktop shell code resides in `src-tauri/src/` (entry point `main.rs`), with granular capabilities defined in `src-tauri/capabilities/` and runtime config in `src-tauri/tauri.conf.json`. Static files go in `public/`, and project-level tooling is configured via the root `tsconfig*.json`, `vite.config.ts`, and `biome.json`.
 
 ## Build, Test, and Development Commands
-- `pnpm install` aligns dependencies with `pnpm-lock.yaml`.
-- `pnpm dev` runs the Vite dev server with HMR; use during frontend work.
-- `pnpm tauri dev` launches the Tauri shell plus Vite for desktop flows.
-- `pnpm build` runs `tsc` then creates a production bundle; `pnpm preview` serves the build locally.
-- Run desktop releases with `pnpm tauri build`; inside `src-tauri`, use `cargo fmt`, `cargo clippy --all-targets`, and `cargo build` for Rust validation.
+Run `pnpm install` after cloning to sync dependencies with `pnpm-lock.yaml`. Use `pnpm dev` for the hot-reloading web app, and `pnpm tauri dev` when validating the desktop shell alongside the renderer. `pnpm build` performs a TypeScript check then emits a production bundle, which `pnpm preview` serves locally. For desktop releases, `pnpm tauri build` packages the Tauri app. Within `src-tauri`, run `cargo fmt`, `cargo clippy --all-targets`, and `cargo build` (or `cargo test`) to keep Rust code linted and healthy.
 
 ## Coding Style & Naming Conventions
-- TypeScript modules use 2-space indentation, `camelCase` variables, and `PascalCase` components/file names (e.g., `TagList.tsx`).
-- React components should remain functional with hooks; colocate tests and styles near the component.
-- Rust follows `rustfmt` defaults with `snake_case` functions and `PascalCase` types; keep modules small and capability-scoped.
-- Run Biome via `pnpm biome check <path>` before committing to surface lint/format issues.
+TypeScript and React follow 2-space indentation, `camelCase` variables, and `PascalCase` components and file names such as `TagList.tsx`. Prefer functional components with hooks and colocate styles and tests. Rust modules rely on `rustfmt` defaults, using `snake_case` for functions and `PascalCase` for types; keep capability-specific logic isolated. Before committing, run `pnpm biome check .` to catch lint and format drift.
 
 ## Testing Guidelines
-- No automated suite ships yet; prefer Vitest + React Testing Library (`*.test.tsx`) beside the module under test.
-- Use `cargo test` inside `src-tauri` for Rust units, grouping integration coverage by capability.
-- Treat manual smoke checks (`pnpm dev`, `pnpm tauri dev`) as mandatory until automated coverage exists.
+Author Vitest + React Testing Library specs beside the module under test (`ComponentName.test.tsx`). Pending broader automation, perform manual smoke checks with `pnpm dev` for web flows and `pnpm tauri dev` for desktop scenarios. Rust code should ship with targeted unit tests under `src-tauri/src/` and be exercised via `cargo test`.
 
 ## Commit & Pull Request Guidelines
-- Follow Conventional Commits (`feat:`, `fix:`, `chore:`, etc.); add a scope when it clarifies impact (`feat(tags): ...`).
-- PRs should include a clear summary, before/after screenshots for UI, verification steps, and linked issues (`Closes #123`).
-- Keep changes focused; split unrelated work across PRs to simplify review.
+Follow Conventional Commits (`feat(tags):`, `fix(tauri):`, etc.) to describe intent precisely. Each PR should include a concise summary, reproduction or verification steps, linked issues (e.g., `Closes #123`), and before/after screenshots for UI work. Keep PRs scoped to a single concern to simplify review and avoid mixing unrelated refactors.
 
 ## Security & Configuration Tips
-- Avoid wildcard Tauri capabilities; grant only what's required in `src-tauri/capabilities/`.
-- Never pass unchecked user input to Tauri commands; validate in the renderer first.
-- Store secrets in environment variables or the Tauri config, not in committed source.
+Grant only necessary permissions in `src-tauri/capabilities/`; avoid wildcard access. Validate and sanitize user input in the renderer before invoking Tauri commands. Store secrets in environment variables or secure Tauri config entries—never commit them to the repository.

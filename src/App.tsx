@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import "./App.css";
 import { ScanSearch, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,9 @@ function App() {
     null,
   );
   const [loading, setLoading] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<DirectoryTableRow[]>([]);
+  const [selectedItems, setSelectedItems] = useState<
+    Record<string, TaggingSidebarItem>
+  >({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAggregateTaggingEnabled, setIsAggregateTaggingEnabled] =
     useState(false);
@@ -41,15 +43,11 @@ function App() {
   }, [directoryTree]);
 
   const isAllRowsSelected = useMemo(() => {
-    if (!tableData) {
+    if (!tableData || tableData.rows.length === 0) {
       return false;
     }
-    const totalRowCount = tableData.rows.length;
-    if (totalRowCount === 0) {
-      return false;
-    }
-    return selectedRows.length === totalRowCount;
-  }, [tableData, selectedRows]);
+    return tableData.rows.every((row) => !!selectedItems[row.id]);
+  }, [tableData, selectedItems]);
 
   const sidebarItems = useMemo<TaggingSidebarItem[]>(() => {
     if (isAggregateTaggingEnabled && directoryTree) {
@@ -60,26 +58,93 @@ function App() {
         },
       ];
     }
-    return selectedRows.map((row) => ({
-      absolutePath: row.info.path,
-      displayName: row.name,
-    }));
-  }, [directoryTree, isAggregateTaggingEnabled, selectedRows]);
+    return Object.values(selectedItems);
+  }, [directoryTree, isAggregateTaggingEnabled, selectedItems]);
+
+  const updateSelectedItems = useCallback(
+    (
+      updater: (
+        previous: Record<string, TaggingSidebarItem>,
+      ) => Record<string, TaggingSidebarItem>,
+    ) => {
+      let nextSelection: Record<string, TaggingSidebarItem> = {};
+      setSelectedItems((previous) => {
+        nextSelection = updater(previous);
+        return nextSelection;
+      });
+      return nextSelection;
+    },
+    [],
+  );
 
   const handleSelectionChange = (rows: DirectoryTableRow[]) => {
-    setSelectedRows(rows);
-    if (rows.length > 0) {
+    if (!isSidebarOpen && rows.length > 0) {
       setIsSidebarOpen(true);
-    } else {
-      setIsSidebarOpen(false);
     }
+
+    const nextSelection = updateSelectedItems((previous) => {
+      const updated = { ...previous };
+      if (tableData) {
+        tableData.rows.forEach((row) => {
+          if (!rows.some((selectedRow) => selectedRow.id === row.id)) {
+            delete updated[row.id];
+          }
+        });
+      }
+      rows.forEach((row) => {
+        updated[row.id] = {
+          absolutePath: row.info.path,
+          displayName: row.name,
+        };
+      });
+      return updated;
+    });
+
+    if (Object.keys(nextSelection).length === 0) {
+      setIsSidebarOpen(false);
+      setIsAggregateTaggingEnabled(false);
+    }
+
     const willSelectAllRows =
       !!tableData &&
       tableData.rows.length > 0 &&
-      rows.length === tableData.rows.length;
+      tableData.rows.every((row) => nextSelection[row.id]);
     if (!willSelectAllRows) {
       setIsAggregateTaggingEnabled(false);
     }
+  };
+
+  const handleSidebarItemRemove = (absolutePath: string) => {
+    if (
+      isAggregateTaggingEnabled &&
+      directoryTree?.info.path === absolutePath
+    ) {
+      updateSelectedItems(() => ({}));
+      setIsAggregateTaggingEnabled(false);
+      return;
+    }
+
+    const nextSelection = updateSelectedItems((previous) => {
+      if (!previous[absolutePath]) {
+        return previous;
+      }
+      const updated = { ...previous };
+      delete updated[absolutePath];
+      return updated;
+    });
+
+    setIsAggregateTaggingEnabled((previous) => {
+      if (!previous) {
+        return previous;
+      }
+      if (!tableData || tableData.rows.length === 0) {
+        return false;
+      }
+      const allRowsStillSelected = tableData.rows.every(
+        (row) => !!nextSelection[row.id],
+      );
+      return allRowsStillSelected;
+    });
   };
 
   const closeSidebar = () => {
@@ -96,7 +161,7 @@ function App() {
 
   const scanDirectory = async () => {
     setLoading(true);
-    setSelectedRows([]);
+    setSelectedItems({});
     setIsSidebarOpen(false);
     setIsAggregateTaggingEnabled(false);
     try {
@@ -105,7 +170,7 @@ function App() {
     } catch (error) {
       console.error("Failed to scan directory:", error);
       setDirectoryTree(null);
-      setSelectedRows([]);
+      setSelectedItems({});
       setIsSidebarOpen(false);
     } finally {
       setLoading(false);
@@ -160,6 +225,7 @@ function App() {
                 columns={exploreColumns}
                 rows={tableData.rows}
                 onSelectionChange={handleSelectionChange}
+                selectedRowIds={Object.keys(selectedItems)}
               />
             </div>
           )}
@@ -171,6 +237,7 @@ function App() {
           showAggregateToggle={isAllRowsSelected}
           aggregateModeEnabled={isAggregateTaggingEnabled}
           onAggregateToggle={toggleAggregateTagging}
+          onItemRemove={handleSidebarItemRemove}
         />
       </div>
     </main>

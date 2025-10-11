@@ -16,6 +16,7 @@ interface TaggingSidebarProps {
   showAggregateToggle?: boolean;
   aggregateModeEnabled?: boolean;
   onAggregateToggle?: () => void;
+  onItemRemove?: (absolutePath: string) => void;
 }
 
 export function TaggingSidebar({
@@ -25,6 +26,7 @@ export function TaggingSidebar({
   showAggregateToggle = false,
   aggregateModeEnabled = false,
   onAggregateToggle,
+  onItemRemove,
 }: TaggingSidebarProps) {
   return (
     <aside
@@ -54,14 +56,32 @@ export function TaggingSidebar({
                 No items selected.
               </p>
             ) : (
-              items.map((item) => (
-                <code
-                  key={item.absolutePath}
-                  className="block rounded-md border border-border bg-background px-3 py-2 text-left text-sm font-mono break-words"
-                >
-                  {item.displayName}
-                </code>
-              ))
+              items.map((item) => {
+                const handleRemove = () => {
+                  onItemRemove?.(item.absolutePath);
+                };
+                return (
+                  <div
+                    key={item.absolutePath}
+                    className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2"
+                  >
+                    <code className="flex-1 text-left text-sm font-mono break-words">
+                      {item.displayName}
+                    </code>
+                    {onItemRemove && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={handleRemove}
+                        aria-label={`Remove ${item.displayName}`}
+                      >
+                        <X className="size-4" aria-hidden />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
           <div className="flex flex-col mt-auto gap-2">

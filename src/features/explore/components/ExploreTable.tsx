@@ -9,7 +9,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Table,
@@ -25,20 +25,17 @@ interface ExploreTableProps {
   columns: ColumnDef<DirectoryTableRow>[];
   rows: DirectoryTableRow[];
   onSelectionChange?: (selectedRows: DirectoryTableRow[]) => void;
+  selectedRowIds?: string[];
 }
 
 export function ExploreTable({
   columns,
   rows,
   onSelectionChange,
+  selectedRowIds,
 }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const selectionChangeCallbackRef = useRef(onSelectionChange);
-
-  useEffect(() => {
-    selectionChangeCallbackRef.current = onSelectionChange;
-  }, [onSelectionChange]);
 
   const handleRowSelectionChange = (
     updater:
@@ -54,6 +51,30 @@ export function ExploreTable({
       return next;
     });
   };
+
+  const rowsById = useMemo(() => {
+    return new Map(rows.map((row) => [row.id, row]));
+  }, [rows]);
+
+  useEffect(() => {
+    if (selectedRowIds === undefined) {
+      return;
+    }
+
+    const nextSelection: RowSelectionState = {};
+    selectedRowIds.forEach((id) => {
+      if (rowsById.has(id)) {
+        nextSelection[id] = true;
+      }
+    });
+
+    setRowSelection((previous) => {
+      if (shallowEqualRowSelection(previous, nextSelection)) {
+        return previous;
+      }
+      return nextSelection;
+    });
+  }, [rowsById, selectedRowIds]);
 
   const tableState = useMemo(
     () => ({ sorting, rowSelection }),
@@ -152,4 +173,21 @@ export function ExploreTable({
       </Table>
     </div>
   );
+}
+
+function shallowEqualRowSelection(
+  a: RowSelectionState,
+  b: RowSelectionState,
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  for (const key of aKeys) {
+    if (!Object.hasOwn(b, key)) {
+      return false;
+    }
+  }
+  return true;
 }
