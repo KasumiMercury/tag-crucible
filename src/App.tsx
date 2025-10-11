@@ -12,9 +12,10 @@ import type {
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 import { formatPathForDisplay } from "@/features/explore/utils/formatPathForDisplay";
 import {
-  TaggingSidebar,
+  TaggingSection,
   type TaggingSidebarItem,
-} from "@/features/tagging/components/TaggingSidebar";
+} from "@/features/tagging/components/TaggingSection";
+import { Sidebar } from "@/Sidebar";
 
 function App() {
   const [directoryTree, setDirectoryTree] = useState<DirectoryNode | null>(
@@ -225,15 +226,15 @@ function App() {
             </div>
           )}
         </div>
-        <TaggingSidebar
-          isOpen={isSidebarOpen}
-          items={sidebarItems}
-          onClose={closeSidebar}
-          showAggregateToggle={isAllRowsSelected}
-          aggregateModeEnabled={isAggregateTaggingEnabled}
-          onAggregateToggle={toggleAggregateTagging}
-          onItemRemove={handleSidebarItemRemove}
-        />
+        <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar}>
+          <TaggingSection
+            items={sidebarItems}
+            showAggregateToggle={isAllRowsSelected}
+            aggregateModeEnabled={isAggregateTaggingEnabled}
+            onAggregateToggle={toggleAggregateTagging}
+            onItemRemove={handleSidebarItemRemove}
+          />
+        </Sidebar>
       </div>
     </main>
   );
