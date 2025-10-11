@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import "./App.css";
 import { ScanSearch, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,54 +61,45 @@ function App() {
     return Object.values(selectedItems);
   }, [directoryTree, isAggregateTaggingEnabled, selectedItems]);
 
-  const updateSelectedItems = useCallback(
-    (
-      updater: (
-        previous: Record<string, TaggingSidebarItem>,
-      ) => Record<string, TaggingSidebarItem>,
-    ) => {
-      let nextSelection: Record<string, TaggingSidebarItem> = {};
-      setSelectedItems((previous) => {
-        nextSelection = updater(previous);
-        return nextSelection;
-      });
-      return nextSelection;
-    },
-    [],
-  );
-
   const handleSelectionChange = (rows: DirectoryTableRow[]) => {
-    if (!isSidebarOpen && rows.length > 0) {
-      setIsSidebarOpen(true);
-    }
+    const visibleRows = tableData?.rows ?? [];
+    const updatedSelection: Record<string, TaggingSidebarItem> = {
+      ...selectedItems,
+    };
 
-    const nextSelection = updateSelectedItems((previous) => {
-      const updated = { ...previous };
-      if (tableData) {
-        tableData.rows.forEach((row) => {
-          if (!rows.some((selectedRow) => selectedRow.id === row.id)) {
-            delete updated[row.id];
-          }
-        });
+    // Remove deselected items from currently visible rows.
+    visibleRows.forEach((row) => {
+      if (!rows.some((selectedRow) => selectedRow.id === row.id)) {
+        delete updatedSelection[row.id];
       }
-      rows.forEach((row) => {
-        updated[row.id] = {
-          absolutePath: row.info.path,
-          displayName: row.name,
-        };
-      });
-      return updated;
     });
 
-    if (Object.keys(nextSelection).length === 0) {
-      setIsSidebarOpen(false);
+    // Add or refresh newly selected rows.
+    rows.forEach((row) => {
+      updatedSelection[row.id] = {
+        absolutePath: row.info.path,
+        displayName: row.name,
+      };
+    });
+
+    setSelectedItems(updatedSelection);
+
+    const hasSelection = Object.keys(updatedSelection).length > 0;
+    setIsSidebarOpen(hasSelection || isAggregateTaggingEnabled);
+    if (!hasSelection) {
       setIsAggregateTaggingEnabled(false);
     }
+
+    console.log("[Tagging] handleSelectionChange", {
+      incomingCount: rows.length,
+      nextCount: Object.keys(updatedSelection).length,
+      sidebarOpen: hasSelection || isAggregateTaggingEnabled,
+    });
 
     const willSelectAllRows =
       !!tableData &&
       tableData.rows.length > 0 &&
-      tableData.rows.every((row) => nextSelection[row.id]);
+      tableData.rows.every((row) => updatedSelection[row.id]);
     if (!willSelectAllRows) {
       setIsAggregateTaggingEnabled(false);
     }
@@ -119,19 +110,18 @@ function App() {
       isAggregateTaggingEnabled &&
       directoryTree?.info.path === absolutePath
     ) {
-      updateSelectedItems(() => ({}));
+      setSelectedItems({});
       setIsAggregateTaggingEnabled(false);
       return;
     }
 
-    const nextSelection = updateSelectedItems((previous) => {
-      if (!previous[absolutePath]) {
-        return previous;
-      }
-      const updated = { ...previous };
-      delete updated[absolutePath];
-      return updated;
-    });
+    if (!selectedItems[absolutePath]) {
+      return;
+    }
+
+    const nextSelection = { ...selectedItems };
+    delete nextSelection[absolutePath];
+    setSelectedItems(nextSelection);
 
     setIsAggregateTaggingEnabled((previous) => {
       if (!previous) {
@@ -145,6 +135,11 @@ function App() {
       );
       return allRowsStillSelected;
     });
+
+    const hasRemainingSelections = Object.keys(nextSelection).length > 0;
+    if (!hasRemainingSelections) {
+      setIsAggregateTaggingEnabled(false);
+    }
   };
 
   const closeSidebar = () => {

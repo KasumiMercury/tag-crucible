@@ -9,7 +9,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Table,
@@ -36,6 +36,11 @@ export function ExploreTable({
 }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const selectionChangeCallbackRef = useRef(onSelectionChange);
+
+  useEffect(() => {
+    selectionChangeCallbackRef.current = onSelectionChange;
+  }, [onSelectionChange]);
 
   const handleRowSelectionChange = (
     updater:
@@ -44,9 +49,11 @@ export function ExploreTable({
   ) => {
     setRowSelection((previous) => {
       const next = typeof updater === "function" ? updater(previous) : updater;
-      if (onSelectionChange) {
+      if (selectionChangeCallbackRef.current) {
         const selectedRows = rows.filter((row) => next[row.id]);
-        onSelectionChange(selectedRows);
+        queueMicrotask(() => {
+          selectionChangeCallbackRef.current?.(selectedRows);
+        });
       }
       return next;
     });
@@ -179,13 +186,13 @@ function shallowEqualRowSelection(
   a: RowSelectionState,
   b: RowSelectionState,
 ): boolean {
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
+  const aKeys = Object.keys(a).sort();
+  const bKeys = Object.keys(b).sort();
   if (aKeys.length !== bKeys.length) {
     return false;
   }
-  for (const key of aKeys) {
-    if (!Object.hasOwn(b, key)) {
+  for (let index = 0; index < aKeys.length; index += 1) {
+    if (aKeys[index] !== bKeys[index]) {
       return false;
     }
   }
