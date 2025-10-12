@@ -3,6 +3,7 @@ export interface FileInfo {
   is_directory: boolean;
   is_symlink: boolean;
   size: number;
+  hierarchy: string[];
   modified: string | null;
 }
 

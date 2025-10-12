@@ -1,7 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { RefreshCcw, ScanSearch, Tags } from "lucide-react";
+import { CornerLeftUp, RefreshCcw, ScanSearch, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
 import { useDirectoryScanner } from "@/features/explore/hooks/useDirectoryScanner";
@@ -15,6 +15,23 @@ import {
 } from "@/features/tagging/components/TaggingSection";
 import { Sidebar } from "@/Sidebar";
 
+function escapeBackslashes(path: string): string {
+  return path.includes("\\") ? path.replace(/\\/g, "\\\\") : path;
+}
+
+function joinPathSegments(segments: string[], separator: string): string {
+  if (segments.length === 0) {
+    return "";
+  }
+
+  return segments.slice(1).reduce<string>((accumulator, segment) => {
+    if (accumulator.endsWith(separator)) {
+      return `${accumulator}${segment}`;
+    }
+    return `${accumulator}${separator}${segment}`;
+  }, segments[0]);
+}
+
 function App() {
   const [selectedItems, setSelectedItems] = useState<
     Record<string, TaggingSidebarItem>
@@ -26,6 +43,7 @@ function App() {
     directoryTree,
     loading,
     error,
+    currentPathSegments,
     scanCurrentDirectory,
     scanPath,
     rescan,
@@ -50,6 +68,28 @@ function App() {
   const handleRescan = useCallback(() => {
     void rescan();
   }, [rescan]);
+
+  const pathSeparator = useMemo(() => {
+    if (!directoryTree) {
+      return "/";
+    }
+
+    return directoryTree.info.path.includes("\\") ? "\\" : "/";
+  }, [directoryTree]);
+
+  const parentPath = useMemo(() => {
+    if (currentPathSegments.length <= 1) {
+      return null;
+    }
+
+    const parentSegments = currentPathSegments.slice(0, -1);
+    if (parentSegments.length === 0) {
+      return null;
+    }
+
+    const joined = joinPathSegments(parentSegments, pathSeparator);
+    return joined === directoryTree?.info.path ? null : joined;
+  }, [currentPathSegments, directoryTree, pathSeparator]);
 
   const handleDirectorySelect = useCallback(async () => {
     if (loading) {
@@ -78,6 +118,14 @@ function App() {
     }
   }, [loading, scanPath, directoryTree]);
 
+  const handleScanParent = useCallback(() => {
+    if (!parentPath) {
+      return;
+    }
+
+    void scanPath(parentPath);
+  }, [parentPath, scanPath]);
+
   const handleScanFromRow = useCallback(
     (path: string) => {
       void scanPath(path);
@@ -96,7 +144,8 @@ function App() {
     if (!directoryTree) {
       return null;
     }
-    return formatPathForDisplay(directoryTree.info.path, 50);
+    const formatted = formatPathForDisplay(directoryTree.info.path, 50);
+    return escapeBackslashes(formatted);
   }, [directoryTree]);
 
   const isAllRowsSelected = useMemo(() => {
@@ -111,7 +160,7 @@ function App() {
       return [
         {
           absolutePath: directoryTree.info.path,
-          displayName: directoryTree.info.path,
+          displayName: escapeBackslashes(directoryTree.info.path),
         },
       ];
     }
@@ -224,7 +273,15 @@ function App() {
             <div className="flex flex-col gap-2 text-start">
               {currentDirectoryLabel && (
                 <div className="flex items-center gap-2">
-                  <span title={directoryTree?.info.path}></span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-label="Scan parent directory"
+                    onClick={handleScanParent}
+                    disabled={!parentPath || loading}
+                  >
+                    <CornerLeftUp className="size-4 mr-2" aria-hidden />
+                  </Button>
                   <Button
                     type="button"
                     variant="outline"

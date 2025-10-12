@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import type { DirectoryNode } from "@/features/explore/types";
+import type { DirectoryNode, FileInfo } from "@/features/explore/types";
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 
 describe("buildExploreTableRows", () => {
-  const baseDirectoryInfo = {
+  const baseDirectoryInfo: FileInfo = {
     path: "/root",
     is_directory: true,
     is_symlink: false,
     size: 0,
     modified: "2025-01-01T12:00:00.000Z",
-  };
+    hierarchy: ["/", "root"],
+  } as const;
 
   const sampleNode: DirectoryNode = {
     name: "root",
@@ -24,6 +25,7 @@ describe("buildExploreTableRows", () => {
           is_symlink: false,
           size: 0,
           modified: "2025-01-01T12:34:56.000Z",
+          hierarchy: ["/", "root", "dir"],
         },
         children: [],
       },
@@ -35,6 +37,7 @@ describe("buildExploreTableRows", () => {
           is_symlink: false,
           size: 1234,
           modified: "2025-01-02T08:09:10.000Z",
+          hierarchy: ["/", "root", "example.txt"],
         },
         children: [],
       },

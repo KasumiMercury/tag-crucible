@@ -18,6 +18,7 @@ export interface UseDirectoryScannerOptions {
 
 export interface UseDirectoryScannerValue {
   directoryTree: DirectoryNode | null;
+  currentPathSegments: string[];
   loading: boolean;
   error: string | null;
   lastTarget: ResolvedScanTarget;
@@ -90,6 +91,7 @@ export function useDirectoryScanner(
           : await invoke<DirectoryNode>("scan_current_directory");
 
         setDirectoryTree(node);
+        console.log("Scanned directory:", node);
         return node;
       } catch (unknownError) {
         const message =
@@ -123,9 +125,15 @@ export function useDirectoryScanner(
 
   const rescan = useCallback(() => performScan(), [performScan]);
 
+  const currentPathSegments = useMemo(
+    () => directoryTree?.info.hierarchy ?? [],
+    [directoryTree],
+  );
+
   const value = useMemo<UseDirectoryScannerValue>(
     () => ({
       directoryTree,
+      currentPathSegments,
       loading,
       error,
       lastTarget,
@@ -135,6 +143,7 @@ export function useDirectoryScanner(
     }),
     [
       directoryTree,
+      currentPathSegments,
       loading,
       error,
       lastTarget,
