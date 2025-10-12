@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { RefreshCcw, ScanSearch, Tags } from "lucide-react";
@@ -21,28 +22,23 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAggregateTaggingEnabled, setIsAggregateTaggingEnabled] =
     useState(false);
-  const { directoryTree, loading, error, scanCurrentDirectory } =
-    useDirectoryScanner();
+  const {
+    directoryTree,
+    loading,
+    error,
+    scanCurrentDirectory,
+    scanPath,
+    rescan,
+  } = useDirectoryScanner();
 
   const initialScanTriggered = useRef(false);
-  const resetTaggingState = useCallback(() => {
-    setSelectedItems({});
-    setIsSidebarOpen(false);
-    setIsAggregateTaggingEnabled(false);
-  }, []);
-
-  const performDirectoryScan = useCallback(async () => {
-    resetTaggingState();
-    await scanCurrentDirectory();
-  }, [resetTaggingState, scanCurrentDirectory]);
-
   useEffect(() => {
     if (initialScanTriggered.current) {
       return;
     }
     initialScanTriggered.current = true;
-    void performDirectoryScan();
-  }, [performDirectoryScan]);
+    void scanCurrentDirectory();
+  }, [scanCurrentDirectory]);
 
   useEffect(() => {
     if (!error) {
@@ -50,6 +46,36 @@ function App() {
     }
     console.error("Failed to scan directory:", error);
   }, [error]);
+
+  const handleRescan = useCallback(() => {
+    void rescan();
+  }, [rescan]);
+
+  const handleDirectorySelect = useCallback(async () => {
+    if (loading) {
+      return;
+    }
+
+    try {
+      const selection = await open({
+        directory: true,
+        multiple: false,
+      });
+
+      if (!selection) {
+        return;
+      }
+
+      const nextPath = Array.isArray(selection) ? selection[0] : selection;
+      if (!nextPath) {
+        return;
+      }
+
+      await scanPath(nextPath);
+    } catch (selectionError) {
+      console.error("Failed to select directory:", selectionError);
+    }
+  }, [loading, scanPath]);
 
   const tableData = useMemo(() => {
     if (!directoryTree) {
@@ -194,7 +220,9 @@ function App() {
                   <Button
                     type="button"
                     variant="outline"
-                    alia-label="Scan directory"
+                    aria-label="Choose directory to scan"
+                    onClick={handleDirectorySelect}
+                    disabled={loading}
                     className="flex-1 truncate text-sm"
                   >
                     <ScanSearch className="size-4 mr-2" aria-hidden />
@@ -203,10 +231,9 @@ function App() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      void performDirectoryScan();
-                    }}
-                    alia-label="Rescan directory"
+                    onClick={handleRescan}
+                    aria-label="Rescan directory"
+                    disabled={loading}
                   >
                     <RefreshCcw className="size-4" aria-hidden />
                   </Button>
