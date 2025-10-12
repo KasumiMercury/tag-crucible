@@ -58,6 +58,7 @@ function App() {
 
     try {
       const selection = await open({
+        defaultPath: directoryTree?.info.path,
         directory: true,
         multiple: false,
       });
@@ -75,7 +76,7 @@ function App() {
     } catch (selectionError) {
       console.error("Failed to select directory:", selectionError);
     }
-  }, [loading, scanPath]);
+  }, [loading, scanPath, directoryTree]);
 
   const handleScanFromRow = useCallback(
     (path: string) => {
