@@ -1,14 +1,12 @@
-import { invoke } from "@tauri-apps/api/core";
-import { useMemo, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { ScanSearch, Tags } from "lucide-react";
+import { CornerLeftUp, RefreshCcw, ScanSearch, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
+import { useDirectoryScanner } from "@/features/explore/hooks/useDirectoryScanner";
 import { exploreColumns } from "@/features/explore/tableColumns";
-import type {
-  DirectoryNode,
-  DirectoryTableRow,
-} from "@/features/explore/types";
+import type { DirectoryTableRow } from "@/features/explore/types";
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 import { formatPathForDisplay } from "@/features/explore/utils/formatPathForDisplay";
 import {
@@ -17,17 +15,123 @@ import {
 } from "@/features/tagging/components/TaggingSection";
 import { Sidebar } from "@/Sidebar";
 
+function escapeBackslashes(path: string): string {
+  return path.includes("\\") ? path.replace(/\\/g, "\\\\") : path;
+}
+
+function joinPathSegments(segments: string[], separator: string): string {
+  if (segments.length === 0) {
+    return "";
+  }
+
+  return segments.slice(1).reduce<string>((accumulator, segment) => {
+    if (accumulator.endsWith(separator)) {
+      return `${accumulator}${segment}`;
+    }
+    return `${accumulator}${separator}${segment}`;
+  }, segments[0]);
+}
+
 function App() {
-  const [directoryTree, setDirectoryTree] = useState<DirectoryNode | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(false);
   const [selectedItems, setSelectedItems] = useState<
     Record<string, TaggingSidebarItem>
   >({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAggregateTaggingEnabled, setIsAggregateTaggingEnabled] =
     useState(false);
+  const {
+    directoryTree,
+    loading,
+    error,
+    currentPathSegments,
+    scanCurrentDirectory,
+    scanPath,
+    rescan,
+  } = useDirectoryScanner();
+
+  const initialScanTriggered = useRef(false);
+  useEffect(() => {
+    if (initialScanTriggered.current) {
+      return;
+    }
+    initialScanTriggered.current = true;
+    void scanCurrentDirectory();
+  }, [scanCurrentDirectory]);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    console.error("Failed to scan directory:", error);
+  }, [error]);
+
+  const handleRescan = useCallback(() => {
+    void rescan();
+  }, [rescan]);
+
+  const pathSeparator = useMemo(() => {
+    if (!directoryTree) {
+      return "/";
+    }
+
+    return directoryTree.info.path.includes("\\") ? "\\" : "/";
+  }, [directoryTree]);
+
+  const parentPath = useMemo(() => {
+    if (currentPathSegments.length <= 1) {
+      return null;
+    }
+
+    const parentSegments = currentPathSegments.slice(0, -1);
+    if (parentSegments.length === 0) {
+      return null;
+    }
+
+    const joined = joinPathSegments(parentSegments, pathSeparator);
+    return joined === directoryTree?.info.path ? null : joined;
+  }, [currentPathSegments, directoryTree, pathSeparator]);
+
+  const handleDirectorySelect = useCallback(async () => {
+    if (loading) {
+      return;
+    }
+
+    try {
+      const selection = await open({
+        defaultPath: directoryTree?.info.path,
+        directory: true,
+        multiple: false,
+      });
+
+      if (!selection) {
+        return;
+      }
+
+      const nextPath = Array.isArray(selection) ? selection[0] : selection;
+      if (!nextPath) {
+        return;
+      }
+
+      await scanPath(nextPath);
+    } catch (selectionError) {
+      console.error("Failed to select directory:", selectionError);
+    }
+  }, [loading, scanPath, directoryTree]);
+
+  const handleScanParent = useCallback(() => {
+    if (!parentPath) {
+      return;
+    }
+
+    void scanPath(parentPath);
+  }, [parentPath, scanPath]);
+
+  const handleScanFromRow = useCallback(
+    (path: string) => {
+      void scanPath(path);
+    },
+    [scanPath],
+  );
 
   const tableData = useMemo(() => {
     if (!directoryTree) {
@@ -40,7 +144,8 @@ function App() {
     if (!directoryTree) {
       return null;
     }
-    return formatPathForDisplay(directoryTree.info.path, 50);
+    const formatted = formatPathForDisplay(directoryTree.info.path, 50);
+    return escapeBackslashes(formatted);
   }, [directoryTree]);
 
   const isAllRowsSelected = useMemo(() => {
@@ -55,7 +160,7 @@ function App() {
       return [
         {
           absolutePath: directoryTree.info.path,
-          displayName: directoryTree.info.path,
+          displayName: escapeBackslashes(directoryTree.info.path),
         },
       ];
     }
@@ -155,37 +260,11 @@ function App() {
     setIsAggregateTaggingEnabled((previous) => !previous);
   };
 
-  const scanDirectory = async () => {
-    setLoading(true);
-    setSelectedItems({});
-    setIsSidebarOpen(false);
-    setIsAggregateTaggingEnabled(false);
-    try {
-      const result = await invoke<DirectoryNode>("scan_current_directory");
-      setDirectoryTree(result);
-    } catch (error) {
-      console.error("Failed to scan directory:", error);
-      setDirectoryTree(null);
-      setSelectedItems({});
-      setIsSidebarOpen(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <main className="h-screen">
       <div className="flex h-full w-full">
         <div className="flex min-w-0 flex-1 flex-col gap-4 px-5 pt-[10vh]">
           <div className="flex w-full flex-col items-stretch gap-2">
-            <button
-              type="button"
-              onClick={scanDirectory}
-              disabled={loading}
-              className="w-full rounded-lg border border-transparent px-5 py-2.5 text-base font-medium bg-white text-gray-950 shadow-md transition-colors duration-200 cursor-pointer hover:border-blue-600 active:border-blue-600 active:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed dark:text-white dark:bg-gray-950/60 dark:active:bg-gray-950/40 outline-none"
-            >
-              {loading ? "Scanning..." : "Scan"}
-            </button>
             {loading && (
               <div className="text-sm text-muted-foreground">Loading...</div>
             )}
@@ -194,15 +273,34 @@ function App() {
             <div className="flex flex-col gap-2 text-start">
               {currentDirectoryLabel && (
                 <div className="flex items-center gap-2">
-                  <span title={directoryTree?.info.path}></span>
                   <Button
                     type="button"
                     variant="outline"
-                    alia-label="Scan directory"
+                    aria-label="Scan parent directory"
+                    onClick={handleScanParent}
+                    disabled={!parentPath || loading}
+                  >
+                    <CornerLeftUp className="size-4" aria-hidden />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-label="Choose directory to scan"
+                    onClick={handleDirectorySelect}
+                    disabled={loading}
                     className="flex-1 truncate text-sm"
                   >
                     <ScanSearch className="size-4 mr-2" aria-hidden />
                     {currentDirectoryLabel}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRescan}
+                    aria-label="Rescan directory"
+                    disabled={loading}
+                  >
+                    <RefreshCcw className="size-4" aria-hidden />
                   </Button>
                   {!isSidebarOpen && (
                     <Button
@@ -210,7 +308,6 @@ function App() {
                       variant="outline"
                       onClick={() => setIsSidebarOpen(true)}
                       aria-label="Open tagging sidebar"
-                      className="ml-auto"
                     >
                       <Tags className="size-4" aria-hidden />
                     </Button>
@@ -222,6 +319,7 @@ function App() {
                 rows={tableData.rows}
                 onSelectionChange={handleSelectionChange}
                 selectedRowIds={Object.keys(selectedItems)}
+                onScanDirectory={handleScanFromRow}
               />
             </div>
           )}

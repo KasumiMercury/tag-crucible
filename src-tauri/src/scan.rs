@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
@@ -29,6 +29,7 @@ pub struct FileInfo {
     is_directory: bool,
     is_symlink: bool,
     size: u64,
+    hierarchy: Vec<String>,
     modified: Option<String>,
 }
 
@@ -72,6 +73,7 @@ fn collect_entries(root: &Path, depth: usize) -> Result<Vec<FileInfo>, ScanError
 
 fn to_file_info(entry: &DirEntry) -> Result<FileInfo, ScanError> {
     let metadata = entry.metadata().map_err(|e| ScanError::Io(e.to_string()))?;
+    let hierarchy = collect_path_hierarchy(entry.path());
 
     let modified = metadata.modified().ok().map(system_time_to_rfc3339);
 
@@ -80,8 +82,43 @@ fn to_file_info(entry: &DirEntry) -> Result<FileInfo, ScanError> {
         is_directory: metadata.is_dir(),
         is_symlink: metadata.file_type().is_symlink(),
         size: metadata.len(),
+        hierarchy,
         modified,
     })
+}
+
+fn collect_path_hierarchy(path: &Path) -> Vec<String> {
+    let mut segments = Vec::new();
+    let mut pending_prefix: Option<String> = None;
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix_component) => {
+                pending_prefix = Some(prefix_component.as_os_str().to_string_lossy().to_string());
+            }
+            Component::RootDir => {
+                if let Some(prefix) = pending_prefix.take() {
+                    segments.push(format!("{prefix}{}", std::path::MAIN_SEPARATOR));
+                } else {
+                    segments.push(String::from(std::path::MAIN_SEPARATOR_STR));
+                }
+            }
+            Component::Normal(os_str) => {
+                if let Some(prefix) = pending_prefix.take() {
+                    segments.push(prefix);
+                }
+                segments.push(os_str.to_string_lossy().to_string());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => segments.push(String::from("..")),
+        }
+    }
+
+    if let Some(prefix) = pending_prefix.take() {
+        segments.push(prefix);
+    }
+
+    segments
 }
 
 fn system_time_to_rfc3339(time: SystemTime) -> String {
@@ -149,6 +186,7 @@ fn compare_nodes(a: &DirectoryNode, b: &DirectoryNode) -> Ordering {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     fn file_info(path: &str, is_directory: bool) -> FileInfo {
         FileInfo {
@@ -156,6 +194,7 @@ mod tests {
             is_directory,
             is_symlink: false,
             size: 0,
+            hierarchy: collect_path_hierarchy(Path::new(path)),
             modified: None,
         }
     }

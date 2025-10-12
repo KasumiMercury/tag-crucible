@@ -8,9 +8,14 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   Table,
   TableBody,
@@ -26,6 +31,7 @@ interface ExploreTableProps {
   rows: DirectoryTableRow[];
   onSelectionChange?: (selectedRows: DirectoryTableRow[]) => void;
   selectedRowIds?: string[];
+  onScanDirectory?: (path: string) => void;
 }
 
 export function ExploreTable({
@@ -33,6 +39,7 @@ export function ExploreTable({
   rows,
   onSelectionChange,
   selectedRowIds,
+  onScanDirectory,
 }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -100,20 +107,40 @@ export function ExploreTable({
     state: tableState,
   });
 
-  const renderRow = (row: Row<DirectoryTableRow>) => (
-    <TableRow
-      key={row.id}
-      data-state={row.getIsSelected() && "selected"}
-      onClick={row.getToggleSelectedHandler()}
-      className="cursor-pointer"
-    >
-      {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      ))}
-    </TableRow>
-  );
+  const renderRow = (row: Row<DirectoryTableRow>) => {
+    const { info } = row.original;
+    const canScanDirectory = info.is_directory && !!onScanDirectory;
+
+    return (
+      <ContextMenu key={row.id}>
+        <ContextMenuTrigger asChild>
+          <TableRow
+            data-state={row.getIsSelected() && "selected"}
+            onClick={row.getToggleSelectedHandler()}
+            className="cursor-pointer"
+          >
+            {row.getVisibleCells().map((cell) => (
+              <TableCell key={cell.id}>
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
+          </TableRow>
+        </ContextMenuTrigger>
+        {canScanDirectory ? (
+          <ContextMenuContent>
+            <ContextMenuItem
+              onSelect={() => {
+                void onScanDirectory?.(info.path);
+              }}
+            >
+              <Search size={14} className="mr-1" />
+              Scan this directory
+            </ContextMenuItem>
+          </ContextMenuContent>
+        ) : null}
+      </ContextMenu>
+    );
+  };
 
   const visibleRows = table.getRowModel().rows;
   const hasAnyRows = visibleRows.length > 0;
