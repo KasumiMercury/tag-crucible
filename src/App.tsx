@@ -280,7 +280,7 @@ function App() {
                     onClick={handleScanParent}
                     disabled={!parentPath || loading}
                   >
-                    <CornerLeftUp className="size-4 mr-2" aria-hidden />
+                    <CornerLeftUp className="size-4" aria-hidden />
                   </Button>
                   <Button
                     type="button"
