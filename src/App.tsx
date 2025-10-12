@@ -15,10 +15,6 @@ import {
 } from "@/features/tagging/components/TaggingSection";
 import { Sidebar } from "@/Sidebar";
 
-function escapeBackslashes(path: string): string {
-  return path.includes("\\") ? path.replace(/\\/g, "\\\\") : path;
-}
-
 function joinPathSegments(segments: string[], separator: string): string {
   if (segments.length === 0) {
     return "";
@@ -145,7 +141,7 @@ function App() {
       return null;
     }
     const formatted = formatPathForDisplay(directoryTree.info.path, 50);
-    return escapeBackslashes(formatted);
+    return formatted;
   }, [directoryTree]);
 
   const isAllRowsSelected = useMemo(() => {
@@ -160,7 +156,7 @@ function App() {
       return [
         {
           absolutePath: directoryTree.info.path,
-          displayName: escapeBackslashes(directoryTree.info.path),
+          displayName: directoryTree.info.path,
         },
       ];
     }
