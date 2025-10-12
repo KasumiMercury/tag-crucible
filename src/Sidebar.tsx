@@ -13,7 +13,7 @@ export function Sidebar({ isOpen, onClose, children }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex h-screen flex-col border-l border-border bg-muted/40 transition-[width] duration-300 ease-in-out overflow-hidden py-6",
+        "flex h-full flex-shrink-0 flex-col border-l border-border bg-muted/40 transition-[width] duration-300 ease-in-out overflow-hidden py-6",
         isOpen ? "w-80 px-5" : "w-0 px-0",
       )}
       aria-hidden={!isOpen}

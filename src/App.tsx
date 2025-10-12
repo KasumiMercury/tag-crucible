@@ -257,9 +257,9 @@ function App() {
   };
 
   return (
-    <main className="h-screen">
+    <main className="h-screen overflow-hidden">
       <div className="flex h-full w-full">
-        <div className="flex min-w-0 flex-1 flex-col gap-4 px-5 pt-[10vh]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-5 pt-[10vh] overflow-y-auto">
           <div className="flex w-full flex-col items-stretch gap-2">
             {loading && (
               <div className="text-sm text-muted-foreground">Loading...</div>
