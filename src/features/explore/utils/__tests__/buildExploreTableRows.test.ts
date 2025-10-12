@@ -11,7 +11,7 @@ describe("buildExploreTableRows", () => {
     size: 0,
     modified: "2025-01-01T12:00:00.000Z",
     hierarchy: ["/", "root"],
-  } as const;
+  };
 
   const sampleNode: DirectoryNode = {
     name: "root",

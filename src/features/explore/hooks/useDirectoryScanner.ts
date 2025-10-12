@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { DirectoryNode } from "@/features/explore/types";
 
 type ScanRequest = {
@@ -67,16 +67,9 @@ export function useDirectoryScanner(
     depth: defaultDepth,
   });
 
-  const lastTargetRef = useRef(lastTarget);
-  lastTargetRef.current = lastTarget;
-
   const performScan = useCallback(
     async (request?: ScanRequest): Promise<DirectoryNode | null> => {
-      const nextTarget = resolveTarget(
-        lastTargetRef.current,
-        request,
-        defaultDepth,
-      );
+      const nextTarget = resolveTarget(lastTarget, request, defaultDepth);
 
       setLoading(true);
       setError(null);
@@ -91,7 +84,6 @@ export function useDirectoryScanner(
           : await invoke<DirectoryNode>("scan_current_directory");
 
         setDirectoryTree(node);
-        console.log("Scanned directory:", node);
         return node;
       } catch (unknownError) {
         const message =
@@ -106,7 +98,7 @@ export function useDirectoryScanner(
         setLoading(false);
       }
     },
-    [defaultDepth],
+    [defaultDepth, lastTarget],
   );
 
   const scanCurrentDirectory = useCallback(
