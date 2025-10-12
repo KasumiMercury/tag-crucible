@@ -1,14 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { ScanSearch, Tags } from "lucide-react";
+import { RefreshCcw, ScanSearch, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
+import { useDirectoryScanner } from "@/features/explore/hooks/useDirectoryScanner";
 import { exploreColumns } from "@/features/explore/tableColumns";
-import type {
-  DirectoryNode,
-  DirectoryTableRow,
-} from "@/features/explore/types";
+import type { DirectoryTableRow } from "@/features/explore/types";
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 import { formatPathForDisplay } from "@/features/explore/utils/formatPathForDisplay";
 import {
@@ -18,16 +15,41 @@ import {
 import { Sidebar } from "@/Sidebar";
 
 function App() {
-  const [directoryTree, setDirectoryTree] = useState<DirectoryNode | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(false);
   const [selectedItems, setSelectedItems] = useState<
     Record<string, TaggingSidebarItem>
   >({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAggregateTaggingEnabled, setIsAggregateTaggingEnabled] =
     useState(false);
+  const { directoryTree, loading, error, scanCurrentDirectory } =
+    useDirectoryScanner();
+
+  const initialScanTriggered = useRef(false);
+  const resetTaggingState = useCallback(() => {
+    setSelectedItems({});
+    setIsSidebarOpen(false);
+    setIsAggregateTaggingEnabled(false);
+  }, []);
+
+  const performDirectoryScan = useCallback(async () => {
+    resetTaggingState();
+    await scanCurrentDirectory();
+  }, [resetTaggingState, scanCurrentDirectory]);
+
+  useEffect(() => {
+    if (initialScanTriggered.current) {
+      return;
+    }
+    initialScanTriggered.current = true;
+    void performDirectoryScan();
+  }, [performDirectoryScan]);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    console.error("Failed to scan directory:", error);
+  }, [error]);
 
   const tableData = useMemo(() => {
     if (!directoryTree) {
@@ -155,37 +177,11 @@ function App() {
     setIsAggregateTaggingEnabled((previous) => !previous);
   };
 
-  const scanDirectory = async () => {
-    setLoading(true);
-    setSelectedItems({});
-    setIsSidebarOpen(false);
-    setIsAggregateTaggingEnabled(false);
-    try {
-      const result = await invoke<DirectoryNode>("scan_current_directory");
-      setDirectoryTree(result);
-    } catch (error) {
-      console.error("Failed to scan directory:", error);
-      setDirectoryTree(null);
-      setSelectedItems({});
-      setIsSidebarOpen(false);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <main className="h-screen">
       <div className="flex h-full w-full">
         <div className="flex min-w-0 flex-1 flex-col gap-4 px-5 pt-[10vh]">
           <div className="flex w-full flex-col items-stretch gap-2">
-            <button
-              type="button"
-              onClick={scanDirectory}
-              disabled={loading}
-              className="w-full rounded-lg border border-transparent px-5 py-2.5 text-base font-medium bg-white text-gray-950 shadow-md transition-colors duration-200 cursor-pointer hover:border-blue-600 active:border-blue-600 active:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed dark:text-white dark:bg-gray-950/60 dark:active:bg-gray-950/40 outline-none"
-            >
-              {loading ? "Scanning..." : "Scan"}
-            </button>
             {loading && (
               <div className="text-sm text-muted-foreground">Loading...</div>
             )}
@@ -204,13 +200,22 @@ function App() {
                     <ScanSearch className="size-4 mr-2" aria-hidden />
                     {currentDirectoryLabel}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      void performDirectoryScan();
+                    }}
+                    alia-label="Rescan directory"
+                  >
+                    <RefreshCcw className="size-4" aria-hidden />
+                  </Button>
                   {!isSidebarOpen && (
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => setIsSidebarOpen(true)}
                       aria-label="Open tagging sidebar"
-                      className="ml-auto"
                     >
                       <Tags className="size-4" aria-hidden />
                     </Button>
