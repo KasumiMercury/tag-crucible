@@ -77,6 +77,13 @@ function App() {
     }
   }, [loading, scanPath]);
 
+  const handleScanFromRow = useCallback(
+    (path: string) => {
+      void scanPath(path);
+    },
+    [scanPath],
+  );
+
   const tableData = useMemo(() => {
     if (!directoryTree) {
       return null;
@@ -254,6 +261,7 @@ function App() {
                 rows={tableData.rows}
                 onSelectionChange={handleSelectionChange}
                 selectedRowIds={Object.keys(selectedItems)}
+                onScanDirectory={handleScanFromRow}
               />
             </div>
           )}
