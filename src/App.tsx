@@ -257,9 +257,9 @@ function App() {
   };
 
   return (
-    <main className="h-screen overflow-hidden">
-      <div className="flex h-full w-full">
-        <div className="flex min-h-0 min-w-0 h-full flex-1 flex-col gap-4 px-5 pt-10 pb-5">
+    <main className="h-screen max-h-screen overflow-hidden">
+      <div className="flex h-full min-h-0 w-full">
+        <div className="flex min-h-0 min-w-0 h-full flex-1 flex-col gap-4 px-5 pt-10 pb-5 overflow-hidden">
           {loading && (
             <div className="text-sm text-muted-foreground">Loading...</div>
           )}
@@ -309,7 +309,7 @@ function App() {
                 </div>
               )}
 
-              <div className="overflow-auto rounded-md border h-full flex-1">
+              <div className="rounded-md border flex-1 min-h-0 overflow-hidden">
                 <ExploreTable
                   columns={exploreColumns}
                   rows={tableData.rows}
