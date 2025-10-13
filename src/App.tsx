@@ -140,7 +140,7 @@ function App() {
     if (!directoryTree) {
       return null;
     }
-    const formatted = formatPathForDisplay(directoryTree.info.path, 50);
+    const formatted = formatPathForDisplay(directoryTree.info.path, 25);
     return formatted;
   }, [directoryTree]);
 
@@ -259,16 +259,14 @@ function App() {
   return (
     <main className="h-screen overflow-hidden">
       <div className="flex h-full w-full">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 px-5 pt-[10vh] overflow-y-auto">
-          <div className="flex w-full flex-col items-stretch gap-2">
-            {loading && (
-              <div className="text-sm text-muted-foreground">Loading...</div>
-            )}
-          </div>
+        <div className="flex min-h-0 min-w-0 h-full flex-1 flex-col gap-4 px-5 pt-10 pb-5">
+          {loading && (
+            <div className="text-sm text-muted-foreground">Loading...</div>
+          )}
           {tableData && (
-            <div className="flex flex-col gap-2 text-start">
+            <>
               {currentDirectoryLabel && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-none">
                   <Button
                     type="button"
                     variant="outline"
@@ -310,14 +308,17 @@ function App() {
                   )}
                 </div>
               )}
-              <ExploreTable
-                columns={exploreColumns}
-                rows={tableData.rows}
-                onSelectionChange={handleSelectionChange}
-                selectedRowIds={Object.keys(selectedItems)}
-                onScanDirectory={handleScanFromRow}
-              />
-            </div>
+
+              <div className="overflow-auto rounded-md border h-full flex-1">
+                <ExploreTable
+                  columns={exploreColumns}
+                  rows={tableData.rows}
+                  onSelectionChange={handleSelectionChange}
+                  selectedRowIds={Object.keys(selectedItems)}
+                  onScanDirectory={handleScanFromRow}
+                />
+              </div>
+            </>
           )}
         </div>
         <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar}>
