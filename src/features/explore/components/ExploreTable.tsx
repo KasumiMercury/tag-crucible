@@ -9,15 +9,29 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { cn } from "@/lib/utils";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { DirectoryTableRow } from "@/features/explore/types";
+import { cn } from "@/lib/utils";
 
 interface ExploreTableProps {
   columns: ColumnDef<DirectoryTableRow>[];
@@ -110,24 +124,21 @@ export function ExploreTable({
     return (
       <ContextMenu key={row.id}>
         <ContextMenuTrigger asChild>
-          <div
+          <TableRow
             data-state={row.getIsSelected() && "selected"}
             onClick={row.getToggleSelectedHandler()}
-            className={cn(
-              "grid cursor-pointer items-center border-b transition-colors hover:bg-muted/50",
-              row.getIsSelected() && "bg-muted",
-            )}
+            className={cn("cursor-pointer", row.getIsSelected() && "bg-muted")}
             style={{ gridTemplateColumns }}
           >
             {row.getVisibleCells().map((cell) => (
-              <div
+              <TableCell
                 key={cell.id}
-                className="p-2 whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]"
+                className="p-2 whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] w-fit"
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </div>
+              </TableCell>
             ))}
-          </div>
+          </TableRow>
         </ContextMenuTrigger>
         {canScanDirectory ? (
           <ContextMenuContent>
@@ -150,73 +161,60 @@ export function ExploreTable({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-      <div className="h-full w-full overflow-x-auto">
-        <div className="flex h-full min-h-0 w-full flex-col">
-          <div className="min-w-full flex-none">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <div
-                key={headerGroup.id}
-                className="grid border-b bg-background text-sm"
-                style={{ gridTemplateColumns }}
-              >
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <div
-                      key={header.id}
-                      className={cn(
-                        "text-foreground flex h-10 items-center gap-1 px-2 font-medium whitespace-nowrap",
-                        header.column.getCanSort() &&
-                          "cursor-pointer select-none",
-                      )}
-                      style={{
-                        gridColumn: `span ${header.colSpan} / span ${header.colSpan}`,
+      <Table className="h-full w-full overflow-x-auto">
+        <TableHeader>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead key={header.id} className="p-2">
+                  {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                    <button
+                      type="button"
+                      className="inline-flex w-full items-center gap-2 cursor-pointer select-none"
+                      onClick={header.column.getToggleSortingHandler()}
+                      onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          header.column.getToggleSortingHandler()?.(e);
+                        }
                       }}
-                      {...(header.column.getCanSort() && {
-                        role: "button" as const,
-                        tabIndex: 0,
-                        onClick: header.column.getToggleSortingHandler(),
-                        onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            header.column.getToggleSortingHandler()?.(event);
-                          }
-                        },
-                      })}
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                      {header.column.getCanSort() &&
-                        (header.column.getIsSorted() === "asc" ? (
-                          <ArrowUp size={14} />
-                        ) : header.column.getIsSorted() === "desc" ? (
-                          <ArrowDown size={14} />
-                        ) : (
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                      {{
+                        asc: <ArrowUp size={14} />,
+                        desc: <ArrowDown size={14} />,
+                      }[header.column.getIsSorted() as string] ?? (
                           <ArrowUpDown size={14} />
-                        ))}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-          <div className="min-w-full flex-1 min-h-0 overflow-y-auto">
-            {hasAnyRows ? (
-              visibleRows.map(renderRow)
-            ) : (
-              <div
-                className="grid h-24 place-items-center border-b p-4 text-sm text-muted-foreground"
-                style={{ gridTemplateColumns }}
-              >
-                <span className="col-span-full">No results.</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+                        )}
+                    </button>
+                  ) : (
+                    flexRender(
+                      header.column.columnDef.header,
+                      header.getContext(),
+                    )
+                  )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody>
+          {hasAnyRows ? (
+            visibleRows.map(renderRow)
+          ) : (
+            <TableRow>
+              <TableCell colSpan={table.getVisibleLeafColumns().length}>
+                <div className="p-4 text-center text-sm text-muted-foreground">
+                  No data to display.
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }
