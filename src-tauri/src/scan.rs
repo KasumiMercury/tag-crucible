@@ -83,8 +83,8 @@ fn collect_entries(root: &Path, depth: usize) -> Result<Vec<FileInfo>, ScanError
             Ok(e) => e,
             Err(e) => {
                 if let Some(io_err) = e.io_error() {
-                    if io_err.kind() == ErrorKind::NotFound {
-                        warn!("Skipping entry as it was not found: {:?}", e.path());
+                    if io_err.kind() == ErrorKind::PermissionDenied {
+                        warn!("Skipping entry due to permission denied: {:?}", e.path());
                         continue;
                     }
                 }
