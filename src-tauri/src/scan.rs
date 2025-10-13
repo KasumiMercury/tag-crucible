@@ -1,8 +1,10 @@
 use chrono::{DateTime, Utc};
+use log::{error, warn};
 use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::env;
+use std::io::ErrorKind;
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 use thiserror::Error;
@@ -45,14 +47,27 @@ pub struct DirectoryNode {
 // Generic directory scanning
 #[tauri::command]
 pub async fn scan_directory(path: PathBuf, depth: usize) -> Result<DirectoryNode, ScanError> {
-    perform_scan(&path, depth)
+    perform_scan(&path, depth).map_err(|e| {
+        error!("Failed to scan directory at {:?}: {}", path, e);
+        e
+    })
 }
 
 // Scan current working directory
 #[tauri::command]
 pub async fn scan_current_directory() -> Result<DirectoryNode, ScanError> {
-    let current_dir = env::current_dir().map_err(|e| ScanError::CurrentDir(e.to_string()))?;
-    perform_scan(&current_dir, 2)
+    let current_dir = env::current_dir().map_err(|e| {
+        let err_msg = e.to_string();
+        error!("Failed to get current directory: {}", err_msg);
+        ScanError::CurrentDir(err_msg)
+    })?;
+    perform_scan(&current_dir, 2).map_err(|e| {
+        error!(
+            "Failed to scan current directory at {:?}: {}",
+            current_dir, e
+        );
+        e
+    })
 }
 
 fn perform_scan(path: &Path, depth: usize) -> Result<DirectoryNode, ScanError> {
@@ -64,8 +79,36 @@ fn collect_entries(root: &Path, depth: usize) -> Result<Vec<FileInfo>, ScanError
     let mut entries = Vec::new();
 
     for entry in WalkDir::new(root).max_depth(depth) {
-        let entry = entry.map_err(|e| ScanError::Io(e.to_string()))?;
-        entries.push(to_file_info(&entry)?);
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                if let Some(io_err) = e.io_error() {
+                    if io_err.kind() == ErrorKind::NotFound {
+                        warn!("Skipping entry as it was not found: {:?}", e.path());
+                        continue;
+                    }
+                }
+                return Err(ScanError::Io(e.to_string()));
+            }
+        };
+
+        match entry.metadata() {
+            Ok(_) => match to_file_info(&entry) {
+                Ok(info) => entries.push(info),
+                Err(e) => return Err(e),
+            },
+            Err(e) => if let Some(io_err) = e.io_error() {
+                match io_err.kind() {
+                    ErrorKind::PermissionDenied => {
+                        warn!("Skipping entry due to permission denied: {:?}", entry.path());
+                        continue;
+                    }
+                    _ => {
+                        return Err(ScanError::Io(e.to_string()));
+                    }
+                }
+            },
+        }
     }
 
     Ok(entries)
