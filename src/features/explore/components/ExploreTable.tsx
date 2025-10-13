@@ -187,8 +187,8 @@ export function ExploreTable({
                         asc: <ArrowUp size={14} />,
                         desc: <ArrowDown size={14} />,
                       }[header.column.getIsSorted() as string] ?? (
-                        <ArrowUpDown size={14} />
-                      )}
+                          <ArrowUpDown size={14} />
+                        )}
                     </button>
                   ) : (
                     flexRender(
@@ -206,7 +206,7 @@ export function ExploreTable({
             visibleRows.map(renderRow)
           ) : (
             <TableRow>
-              <TableCell>
+              <TableCell colSpan={table.getVisibleLeafColumns().length}>
                 <div className="p-4 text-center text-sm text-muted-foreground">
                   No data to display.
                 </div>
