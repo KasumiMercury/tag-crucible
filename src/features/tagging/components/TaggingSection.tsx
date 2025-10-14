@@ -1,4 +1,6 @@
+import { invoke } from "@tauri-apps/api/core";
 import { Combine, SquareStack, X } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +16,7 @@ interface TaggingSectionProps {
   aggregateModeEnabled?: boolean;
   onAggregateToggle?: () => void;
   onItemRemove?: (absolutePath: string) => void;
+  onTagAdded?: (tag: string, paths: string[]) => void;
 }
 
 export function TaggingSection({
@@ -22,7 +25,39 @@ export function TaggingSection({
   aggregateModeEnabled = false,
   onAggregateToggle,
   onItemRemove,
+  onTagAdded,
 }: TaggingSectionProps) {
+  const [tagName, setTagName] = useState("");
+
+  const handleAddTag = async () => {
+    const trimmedTag = tagName.trim();
+
+    if (trimmedTag === "") {
+      console.warn("Tag name is empty");
+      return;
+    }
+
+    if (items.length === 0) {
+      console.warn("No items selected");
+      return;
+    }
+
+    const paths = items.map((item) => item.absolutePath);
+
+    try {
+      await invoke("assign_tag_to_paths", {
+        paths,
+        tag: trimmedTag,
+      });
+
+      console.log(`Successfully tagged ${paths.length} items with "${trimmedTag}"`);
+      setTagName("");
+      onTagAdded?.(trimmedTag, paths);
+    } catch (error) {
+      console.error("Failed to assign tag:", error);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col gap-4">
       <div className="flex items-center">
@@ -81,8 +116,15 @@ export function TaggingSection({
             )}
           </Button>
         )}
-        <Input type="text" placeholder="tag name" />
-        <Button className="w-full">Add Tag</Button>
+        <Input
+          type="text"
+          placeholder="tag name"
+          value={tagName}
+          onChange={(e) => setTagName(e.target.value)}
+        />
+        <Button type="button" className="w-full" onClick={handleAddTag}>
+          Add Tag
+        </Button>
       </div>
     </div>
   );
