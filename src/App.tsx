@@ -14,7 +14,7 @@ import {
   type TaggingSidebarItem,
 } from "@/features/tagging/components/TaggingSection";
 import { Sidebar } from "@/Sidebar";
-import { Badge } from "./components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 
 function joinPathSegments(segments: string[], separator: string): string {
   if (segments.length === 0) {
