@@ -50,7 +50,9 @@ export function TaggingSection({
         tag: trimmedTag,
       });
 
-      console.log(`Successfully tagged ${paths.length} items with "${trimmedTag}"`);
+      console.log(
+        `Successfully tagged ${paths.length} items with "${trimmedTag}"`,
+      );
       setTagName("");
       onTagAdded?.(trimmedTag, paths);
     } catch (error) {

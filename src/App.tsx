@@ -2,6 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { CornerLeftUp, RefreshCcw, ScanSearch, Tags } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
 import { useDirectoryScanner } from "@/features/explore/hooks/useDirectoryScanner";
@@ -14,7 +15,6 @@ import {
   type TaggingSidebarItem,
 } from "@/features/tagging/components/TaggingSection";
 import { Sidebar } from "@/Sidebar";
-import { Badge } from "@/components/ui/badge";
 
 function joinPathSegments(segments: string[], separator: string): string {
   if (segments.length === 0) {

@@ -187,8 +187,8 @@ export function ExploreTable({
                         asc: <ArrowUp size={14} />,
                         desc: <ArrowDown size={14} />,
                       }[header.column.getIsSorted() as string] ?? (
-                          <ArrowUpDown size={14} />
-                        )}
+                        <ArrowUpDown size={14} />
+                      )}
                     </button>
                   ) : (
                     flexRender(
