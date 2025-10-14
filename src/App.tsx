@@ -145,11 +145,18 @@ function App() {
     return formatted;
   }, [directoryTree]);
 
-  const rootTags = useMemo(() => {
+  const rootOwnTags = useMemo(() => {
     if (!directoryTree) {
       return [];
     }
-    return directoryTree.info.tags;
+    return directoryTree.info.own_tags;
+  }, [directoryTree]);
+
+  const rootInheritedTags = useMemo(() => {
+    if (!directoryTree) {
+      return [];
+    }
+    return directoryTree.info.inherited_tags;
   }, [directoryTree]);
 
   const isAllRowsSelected = useMemo(() => {
@@ -317,8 +324,13 @@ function App() {
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-1">
-                {rootTags.map((tag) => (
+              <div className="flex flex-wrap gap-1 items-center">
+                {rootInheritedTags.map((tag) => (
+                  <Badge variant="secondary" key={tag}>
+                    {tag}
+                  </Badge>
+                ))}
+                {rootOwnTags.map((tag) => (
                   <Badge variant="default" key={tag}>
                     {tag}
                   </Badge>

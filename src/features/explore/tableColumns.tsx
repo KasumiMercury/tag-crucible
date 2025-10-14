@@ -56,10 +56,10 @@ export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
     enableSorting: true,
   },
   {
-    accessorKey: "info.tags",
+    accessorKey: "info.own_tags",
     header: "Tags",
     cell: ({ row }) => {
-      const tags = row.original.info.tags;
+      const tags = row.original.info.own_tags;
       if (tags.length === 0) {
         return <span>-</span>;
       }

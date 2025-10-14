@@ -12,7 +12,7 @@ use tauri::State;
 use thiserror::Error;
 use walkdir::{DirEntry, WalkDir};
 
-use crate::tagging::get_tags_for_directory;
+use crate::tagging::{get_tags_for_directory, DirectoryTagSnapshot};
 use crate::DbConnection;
 
 // Custom error type for directory scanning operations
@@ -41,7 +41,8 @@ pub struct FileInfo {
     size: u64,
     hierarchy: Vec<String>,
     modified: Option<String>,
-    tags: Vec<String>,
+    own_tags: Vec<String>,
+    inherited_tags: Vec<String>,
 }
 
 // Tree node structure
@@ -91,7 +92,7 @@ pub async fn scan_current_directory(
 fn perform_scan(
     path: &Path,
     depth: usize,
-    tags: &BTreeMap<PathBuf, Vec<String>>,
+    tags: &DirectoryTagSnapshot,
 ) -> Result<DirectoryNode, ScanError> {
     let mut entries = collect_entries(path, depth)?;
     apply_tags(path, &mut entries, tags);
@@ -155,7 +156,8 @@ fn to_file_info(entry: &DirEntry) -> Result<FileInfo, ScanError> {
         size: metadata.len(),
         hierarchy,
         modified,
-        tags: Vec::new(),
+        own_tags: Vec::new(),
+        inherited_tags: Vec::new(),
     })
 }
 
@@ -201,7 +203,7 @@ fn fetch_tags_for_scan(
     state: &State<DbConnection>,
     root: &Path,
     depth: usize,
-) -> Result<BTreeMap<PathBuf, Vec<String>>, ScanError> {
+) -> Result<DirectoryTagSnapshot, ScanError> {
     let guard = state
         .db
         .lock()
@@ -214,44 +216,64 @@ fn fetch_tags_for_scan(
         .map_err(|err| ScanError::Database(err.to_string()))
 }
 
-fn apply_tags(root: &Path, entries: &mut [FileInfo], direct_tags: &BTreeMap<PathBuf, Vec<String>>) {
-    let mut cache: HashMap<PathBuf, Vec<String>> = HashMap::new();
+fn apply_tags(
+    root: &Path,
+    entries: &mut [FileInfo],
+    tag_snapshot: &DirectoryTagSnapshot,
+) {
+    let mut cache: HashMap<PathBuf, (Vec<String>, Vec<String>)> = HashMap::new();
     let normalized_root = normalize_path_buf(root);
+    let direct_tags = &tag_snapshot.direct_tags;
+    let root_ancestor_tags = &tag_snapshot.root_ancestor_tags;
 
     for entry in entries.iter_mut() {
         let normalized_path = normalize_path_buf(&entry.path);
-        let tags =
-            compute_tags_for_path(&normalized_path, &normalized_root, direct_tags, &mut cache);
-        entry.tags = tags;
+        let (own_tags, inherited_tags) = compute_own_and_inherited_tags(
+            &normalized_path,
+            &normalized_root,
+            direct_tags,
+            root_ancestor_tags,
+            &mut cache,
+        );
+        entry.own_tags = own_tags;
+        entry.inherited_tags = inherited_tags;
     }
 }
 
-fn compute_tags_for_path(
+fn compute_own_and_inherited_tags(
     path: &Path,
     root: &Path,
     direct_tags: &BTreeMap<PathBuf, Vec<String>>,
-    cache: &mut HashMap<PathBuf, Vec<String>>,
-) -> Vec<String> {
+    root_ancestor_tags: &[String],
+    cache: &mut HashMap<PathBuf, (Vec<String>, Vec<String>)>,
+) -> (Vec<String>, Vec<String>) {
     if let Some(existing) = cache.get(path) {
         return existing.clone();
     }
 
-    let mut accumulator: BTreeSet<String> = BTreeSet::new();
+    let own_tags: Vec<String> = direct_tags
+        .get(path)
+        .map(|tags| tags.clone())
+        .unwrap_or_default();
 
-    if let Some(tags) = direct_tags.get(path) {
-        accumulator.extend(tags.iter().cloned());
-    }
+    let inherited_tags = if path == root {
+        let mut inherited = BTreeSet::new();
+        inherited.extend(root_ancestor_tags.iter().cloned());
+        inherited.into_iter().collect::<Vec<_>>()
+    } else if let Some(parent) = path.parent() {
+        let (parent_own, parent_inherited) =
+            compute_own_and_inherited_tags(parent, root, direct_tags, root_ancestor_tags, cache);
+        let mut inherited = BTreeSet::new();
+        inherited.extend(parent_inherited);
+        inherited.extend(parent_own);
+        inherited.into_iter().collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
 
-    if path != root {
-        if let Some(parent) = path.parent() {
-            let parent_tags = compute_tags_for_path(parent, root, direct_tags, cache);
-            accumulator.extend(parent_tags);
-        }
-    }
-
-    let tags = accumulator.into_iter().collect::<Vec<_>>();
-    cache.insert(path.to_path_buf(), tags.clone());
-    tags
+    let result = (own_tags, inherited_tags);
+    cache.insert(path.to_path_buf(), result.clone());
+    result
 }
 
 fn build_directory_tree(root: &Path, entries: &[FileInfo]) -> Result<DirectoryNode, ScanError> {
@@ -338,7 +360,8 @@ mod tests {
             size: 0,
             hierarchy: collect_path_hierarchy(Path::new(path)),
             modified: None,
-            tags: Vec::new(),
+            own_tags: Vec::new(),
+            inherited_tags: Vec::new(),
         }
     }
 
@@ -434,22 +457,30 @@ mod tests {
             vec!["file-tag".to_string()],
         );
 
-        apply_tags(root.as_path(), &mut entries, &tags_map);
+        let snapshot = DirectoryTagSnapshot {
+            direct_tags: tags_map,
+            root_ancestor_tags: Vec::new(),
+        };
 
-        assert_eq!(entries[0].tags, vec!["root-tag".to_string()]);
+        apply_tags(root.as_path(), &mut entries, &snapshot);
+
+        // Root: own_tags only
+        assert_eq!(entries[0].own_tags, vec!["root-tag".to_string()]);
+        assert_eq!(entries[0].inherited_tags, Vec::<String>::new());
+
+        // Folder: own_tags + inherited from root
         assert_eq!(
-            entries[1].tags,
-            vec![
-                "alpha".to_string(),
-                "folder-tag".to_string(),
-                "root-tag".to_string()
-            ]
+            entries[1].own_tags,
+            vec!["folder-tag".to_string(), "alpha".to_string()]
         );
+        assert_eq!(entries[1].inherited_tags, vec!["root-tag".to_string()]);
+
+        // File: own_tags + inherited from folder and root
+        assert_eq!(entries[2].own_tags, vec!["file-tag".to_string()]);
         assert_eq!(
-            entries[2].tags,
+            entries[2].inherited_tags,
             vec![
                 "alpha".to_string(),
-                "file-tag".to_string(),
                 "folder-tag".to_string(),
                 "root-tag".to_string()
             ]
@@ -457,12 +488,44 @@ mod tests {
     }
 
     #[test]
+    fn apply_tags_assigns_root_ancestor_tags() {
+        let root = PathBuf::from("/root/project");
+        let mut entries = vec![
+            file_info("/root/project", true),
+            file_info("/root/project/nested", true),
+        ];
+
+        let snapshot = DirectoryTagSnapshot {
+            direct_tags: BTreeMap::new(),
+            root_ancestor_tags: vec!["alpha".to_string(), "beta".to_string()],
+        };
+
+        apply_tags(root.as_path(), &mut entries, &snapshot);
+
+        assert!(entries[0].own_tags.is_empty());
+        assert_eq!(
+            entries[0].inherited_tags,
+            vec!["alpha".to_string(), "beta".to_string()]
+        );
+
+        assert!(entries[1].own_tags.is_empty());
+        assert_eq!(
+            entries[1].inherited_tags,
+            vec!["alpha".to_string(), "beta".to_string()]
+        );
+    }
+
+    #[test]
     fn apply_tags_handles_empty_direct_map() {
         let root = PathBuf::from("/root");
         let mut entries = vec![file_info("/root", true)];
-        let tags_map = BTreeMap::new();
+        let snapshot = DirectoryTagSnapshot {
+            direct_tags: BTreeMap::new(),
+            root_ancestor_tags: Vec::new(),
+        };
 
-        apply_tags(root.as_path(), &mut entries, &tags_map);
-        assert!(entries[0].tags.is_empty());
+        apply_tags(root.as_path(), &mut entries, &snapshot);
+        assert!(entries[0].own_tags.is_empty());
+        assert!(entries[0].inherited_tags.is_empty());
     }
 }

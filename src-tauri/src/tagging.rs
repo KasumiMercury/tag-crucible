@@ -26,6 +26,12 @@ pub enum TaggingError {
     Database(String),
 }
 
+#[derive(Debug, Clone)]
+pub struct DirectoryTagSnapshot {
+    pub direct_tags: BTreeMap<PathBuf, Vec<String>>,
+    pub root_ancestor_tags: Vec<String>,
+}
+
 #[tauri::command]
 pub fn assign_tag_to_paths(
     state: State<'_, DbConnection>,
@@ -221,7 +227,7 @@ pub fn get_tags_for_directory<P: AsRef<Path>>(
     connection: &duckdb::Connection,
     root: P,
     max_depth: usize,
-) -> Result<BTreeMap<PathBuf, Vec<String>>, TaggingError> {
+) -> Result<DirectoryTagSnapshot, TaggingError> {
     let root = root.as_ref();
     let normalized_root = normalize_path(&root.to_string_lossy());
     let root_path = PathBuf::from(&normalized_root);
@@ -233,7 +239,7 @@ pub fn get_tags_for_directory<P: AsRef<Path>>(
     };
     let max_allowed_depth = root_depth.saturating_add(depth_offset);
 
-    let mut tags_by_path = collect_descendant_tags(
+    let tags_by_path = collect_descendant_tags(
         connection,
         &root_path,
         &normalized_root,
@@ -242,14 +248,8 @@ pub fn get_tags_for_directory<P: AsRef<Path>>(
     )?;
 
     let ancestor_tags = collect_ancestor_tags(connection, &root_path)?;
-    if !ancestor_tags.is_empty() {
-        tags_by_path
-            .entry(root_path.clone())
-            .or_default()
-            .extend(ancestor_tags);
-    }
 
-    let result = tags_by_path
+    let direct_tags = tags_by_path
         .into_iter()
         .filter_map(|(path, tags)| {
             if tags.is_empty() {
@@ -260,7 +260,10 @@ pub fn get_tags_for_directory<P: AsRef<Path>>(
         })
         .collect();
 
-    Ok(result)
+    Ok(DirectoryTagSnapshot {
+        direct_tags,
+        root_ancestor_tags: ancestor_tags.into_iter().collect(),
+    })
 }
 
 fn normalize_path(path: &str) -> String {
@@ -387,23 +390,24 @@ mod tests {
         insert(&paths.ancestor, "ancestor-tag");
         insert(&paths.unrelated, "other-tag");
 
-        let tags = get_tags_for_directory(&connection, &paths.scan_root, 5).expect("fetch tags");
+        let snapshot =
+            get_tags_for_directory(&connection, &paths.scan_root, 5).expect("fetch tags");
 
         assert_eq!(
-            tags.get(&paths.scan_root),
-            Some(&vec![
-                "ancestor-tag".to_string(),
-                "parent-tag".to_string(),
-                "root-tag".to_string()
-            ])
+            snapshot.direct_tags.get(&paths.scan_root),
+            Some(&vec!["root-tag".to_string()])
         );
 
         assert_eq!(
-            tags.get(&paths.descendant),
+            snapshot.direct_tags.get(&paths.descendant),
             Some(&vec!["desc-tag".to_string()])
         );
 
-        assert!(tags.get(&paths.unrelated).is_none());
+        assert!(snapshot.direct_tags.get(&paths.unrelated).is_none());
+        assert_eq!(
+            snapshot.root_ancestor_tags,
+            vec!["ancestor-tag".to_string(), "parent-tag".to_string()]
+        );
     }
 
     #[test]
@@ -426,15 +430,21 @@ mod tests {
         insert(&paths.descendant, "desc-tag");
         insert(&paths.deep_descendant, "deep-tag");
 
-        let depth_one =
-            get_tags_for_directory(&connection, &paths.scan_root, 1).expect("fetch depth 1 tags");
-        assert!(depth_one.get(&paths.scan_root).is_some());
-        assert!(depth_one.get(&paths.descendant).is_some());
-        assert!(depth_one.get(&paths.deep_descendant).is_none());
+        let depth_one = get_tags_for_directory(&connection, &paths.scan_root, 1)
+            .expect("fetch depth 1 tags");
+        assert!(depth_one.direct_tags.get(&paths.scan_root).is_some());
+        assert!(depth_one.direct_tags.get(&paths.descendant).is_some());
+        assert!(depth_one
+            .direct_tags
+            .get(&paths.deep_descendant)
+            .is_none());
 
         let depth_three =
             get_tags_for_directory(&connection, &paths.scan_root, 3).expect("fetch depth 3 tags");
-        assert!(depth_three.get(&paths.deep_descendant).is_some());
+        assert!(depth_three
+            .direct_tags
+            .get(&paths.deep_descendant)
+            .is_some());
     }
 
     #[test]
@@ -456,11 +466,13 @@ mod tests {
         insert(&paths.ancestor, "ancestor-tag");
         insert(&paths.parent, "parent-tag");
 
-        let tags = get_tags_for_directory(&connection, &paths.scan_root, 5).expect("fetch tags");
+        let snapshot =
+            get_tags_for_directory(&connection, &paths.scan_root, 5).expect("fetch tags");
 
+        assert!(snapshot.direct_tags.get(&paths.scan_root).is_none());
         assert_eq!(
-            tags.get(&paths.scan_root),
-            Some(&vec!["ancestor-tag".to_string(), "parent-tag".to_string()])
+            snapshot.root_ancestor_tags,
+            vec!["ancestor-tag".to_string(), "parent-tag".to_string()]
         );
     }
 
@@ -471,7 +483,9 @@ mod tests {
 
         let paths = sample_paths();
 
-        let tags = get_tags_for_directory(&connection, &paths.scan_root, 3).expect("fetch tags");
-        assert!(tags.is_empty());
+        let snapshot =
+            get_tags_for_directory(&connection, &paths.scan_root, 3).expect("fetch tags");
+        assert!(snapshot.direct_tags.is_empty());
+        assert!(snapshot.root_ancestor_tags.is_empty());
     }
 }
