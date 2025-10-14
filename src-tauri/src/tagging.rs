@@ -61,8 +61,6 @@ pub fn assign_tag_to_paths(
         .as_mut()
         .ok_or(TaggingError::ConnectionUnavailable)?;
 
-    ensure_schema(connection)?;
-
     let transaction = connection
         .transaction()
         .map_err(|err| TaggingError::Database(err.to_string()))?;
@@ -105,26 +103,16 @@ pub(crate) fn ensure_schema(connection: &duckdb::Connection) -> Result<(), Taggi
     Ok(())
 }
 
-pub fn get_tags_for_directory<P: AsRef<Path>>(
+fn collect_descendant_tags(
     connection: &duckdb::Connection,
-    root: P,
-    max_depth: usize,
-) -> Result<BTreeMap<PathBuf, Vec<String>>, TaggingError> {
-    ensure_schema(connection)?;
-
-    let root = root.as_ref();
-    let normalized_root = normalize_path(&root.to_string_lossy());
-    let root_path = PathBuf::from(&normalized_root);
-    let root_depth = calculate_path_depth(&root_path);
-    let depth_offset = if max_depth > i64::MAX as usize {
-        i64::MAX
-    } else {
-        max_depth as i64
-    };
-    let max_allowed_depth = root_depth.saturating_add(depth_offset);
-    let descendant_pattern = descendant_like_pattern(&normalized_root);
-
+    root_path: &Path,
+    normalized_root: &str,
+    root_depth: i64,
+    max_allowed_depth: i64,
+) -> Result<BTreeMap<PathBuf, BTreeSet<String>>, TaggingError> {
+    let descendant_pattern = descendant_like_pattern(normalized_root);
     let mut tags_by_path: BTreeMap<PathBuf, BTreeSet<String>> = BTreeMap::new();
+
     let mut descendant_statement = connection
         .prepare(
             "
@@ -136,38 +124,43 @@ pub fn get_tags_for_directory<P: AsRef<Path>>(
         )
         .map_err(|err| TaggingError::Database(err.to_string()))?;
 
+    let mut rows = descendant_statement
+        .query(duckdb::params![
+            normalized_root,
+            root_depth,
+            max_allowed_depth,
+            descendant_pattern
+        ])
+        .map_err(|err| TaggingError::Database(err.to_string()))?;
+
+    while let Some(row) = rows
+        .next()
+        .map_err(|err| TaggingError::Database(err.to_string()))?
     {
-        let mut rows = descendant_statement
-            .query(duckdb::params![
-                normalized_root.clone(),
-                root_depth,
-                max_allowed_depth,
-                descendant_pattern
-            ])
+        let stored_path: String = row
+            .get(0)
+            .map_err(|err| TaggingError::Database(err.to_string()))?;
+        let tag: String = row
+            .get(1)
             .map_err(|err| TaggingError::Database(err.to_string()))?;
 
-        while let Some(row) = rows
-            .next()
-            .map_err(|err| TaggingError::Database(err.to_string()))?
-        {
-            let stored_path: String = row
-                .get(0)
-                .map_err(|err| TaggingError::Database(err.to_string()))?;
-            let tag: String = row
-                .get(1)
-                .map_err(|err| TaggingError::Database(err.to_string()))?;
+        let stored_path_buf = PathBuf::from(&stored_path);
 
-            let stored_path_buf = PathBuf::from(&stored_path);
-
-            if stored_path_buf == root_path || stored_path_buf.starts_with(&root_path) {
-                tags_by_path
-                    .entry(stored_path_buf)
-                    .or_default()
-                    .insert(tag);
-            }
+        if stored_path_buf == *root_path || stored_path_buf.starts_with(root_path) {
+            tags_by_path
+                .entry(stored_path_buf)
+                .or_default()
+                .insert(tag);
         }
     }
 
+    Ok(tags_by_path)
+}
+
+fn collect_ancestor_tags(
+    connection: &duckdb::Connection,
+    root_path: &Path,
+) -> Result<BTreeSet<String>, TaggingError> {
     let ancestor_paths: Vec<String> = root_path
         .ancestors()
         .skip(1)
@@ -180,46 +173,80 @@ pub fn get_tags_for_directory<P: AsRef<Path>>(
         })
         .collect();
 
-    if !ancestor_paths.is_empty() {
-        let placeholder_list = std::iter::repeat("?")
-            .take(ancestor_paths.len())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let ancestor_sql = format!(
-            "SELECT path, tag FROM path_tags WHERE path IN ({})",
-            placeholder_list
-        );
+    if ancestor_paths.is_empty() {
+        return Ok(BTreeSet::new());
+    }
 
-        let mut ancestor_statement = connection
-            .prepare(&ancestor_sql)
+    let placeholder_list = std::iter::repeat_n("?", ancestor_paths.len())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let ancestor_sql = format!(
+        "SELECT path, tag FROM path_tags WHERE path IN ({})",
+        placeholder_list
+    );
+
+    let mut ancestor_statement = connection
+        .prepare(&ancestor_sql)
+        .map_err(|err| TaggingError::Database(err.to_string()))?;
+
+    let mut rows = ancestor_statement
+        .query(duckdb::params_from_iter(
+            ancestor_paths.iter().map(|path| path.as_str()),
+        ))
+        .map_err(|err| TaggingError::Database(err.to_string()))?;
+
+    let mut tags = BTreeSet::new();
+    while let Some(row) = rows
+        .next()
+        .map_err(|err| TaggingError::Database(err.to_string()))?
+    {
+        let stored_path: String = row
+            .get(0)
+            .map_err(|err| TaggingError::Database(err.to_string()))?;
+        let tag: String = row
+            .get(1)
             .map_err(|err| TaggingError::Database(err.to_string()))?;
 
-        let mut rows = ancestor_statement
-            .query(duckdb::params_from_iter(
-                ancestor_paths.iter().map(|path| path.as_str()),
-            ))
-            .map_err(|err| TaggingError::Database(err.to_string()))?;
+        let stored_path_buf = PathBuf::from(&stored_path);
 
-        while let Some(row) = rows
-            .next()
-            .map_err(|err| TaggingError::Database(err.to_string()))?
-        {
-            let stored_path: String = row
-                .get(0)
-                .map_err(|err| TaggingError::Database(err.to_string()))?;
-            let tag: String = row
-                .get(1)
-                .map_err(|err| TaggingError::Database(err.to_string()))?;
-
-            let stored_path_buf = PathBuf::from(&stored_path);
-
-            if root_path.starts_with(&stored_path_buf) {
-                tags_by_path
-                    .entry(root_path.clone())
-                    .or_default()
-                    .insert(tag);
-            }
+        if root_path.starts_with(&stored_path_buf) {
+            tags.insert(tag);
         }
+    }
+
+    Ok(tags)
+}
+
+pub fn get_tags_for_directory<P: AsRef<Path>>(
+    connection: &duckdb::Connection,
+    root: P,
+    max_depth: usize,
+) -> Result<BTreeMap<PathBuf, Vec<String>>, TaggingError> {
+    let root = root.as_ref();
+    let normalized_root = normalize_path(&root.to_string_lossy());
+    let root_path = PathBuf::from(&normalized_root);
+    let root_depth = calculate_path_depth(&root_path);
+    let depth_offset = if max_depth > i64::MAX as usize {
+        i64::MAX
+    } else {
+        max_depth as i64
+    };
+    let max_allowed_depth = root_depth.saturating_add(depth_offset);
+
+    let mut tags_by_path = collect_descendant_tags(
+        connection,
+        &root_path,
+        &normalized_root,
+        root_depth,
+        max_allowed_depth,
+    )?;
+
+    let ancestor_tags = collect_ancestor_tags(connection, &root_path)?;
+    if !ancestor_tags.is_empty() {
+        tags_by_path
+            .entry(root_path.clone())
+            .or_default()
+            .extend(ancestor_tags);
     }
 
     let result = tags_by_path
@@ -228,10 +255,10 @@ pub fn get_tags_for_directory<P: AsRef<Path>>(
             if tags.is_empty() {
                 None
             } else {
-                Some((path, tags.into_iter().collect::<Vec<_>>()))
+                Some((path, tags.into_iter().collect()))
             }
         })
-        .collect::<BTreeMap<_, _>>();
+        .collect();
 
     Ok(result)
 }
