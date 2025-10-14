@@ -1,5 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Square, SquareCheckBig } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 import type { DirectoryTableRow } from "@/features/explore/types";
 
@@ -53,6 +54,26 @@ export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
     accessorKey: "name",
     header: "Name",
     enableSorting: true,
+  },
+  {
+    accessorKey: "info.tags",
+    header: "Tags",
+    cell: ({ row }) => {
+      const tags = row.original.info.tags;
+      if (tags.length === 0) {
+        return <span>-</span>;
+      }
+      return (
+        <div className="flex flex-wrap gap-1 max-w-sm">
+          {tags.map((tag) => (
+            <Badge variant="default" key={tag}>
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      );
+    },
+    enableSorting: false,
   },
   {
     accessorKey: "info.modified",

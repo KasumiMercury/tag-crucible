@@ -5,6 +5,7 @@ export interface FileInfo {
   size: number;
   hierarchy: string[];
   modified: string | null;
+  tags: string[];
 }
 
 export interface DirectoryNode {

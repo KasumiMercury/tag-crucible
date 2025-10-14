@@ -14,6 +14,7 @@ import {
   type TaggingSidebarItem,
 } from "@/features/tagging/components/TaggingSection";
 import { Sidebar } from "@/Sidebar";
+import { Badge } from "./components/ui/badge";
 
 function joinPathSegments(segments: string[], separator: string): string {
   if (segments.length === 0) {
@@ -142,6 +143,13 @@ function App() {
     }
     const formatted = formatPathForDisplay(directoryTree.info.path, 25);
     return formatted;
+  }, [directoryTree]);
+
+  const rootTags = useMemo(() => {
+    if (!directoryTree) {
+      return [];
+    }
+    return directoryTree.info.tags;
   }, [directoryTree]);
 
   const isAllRowsSelected = useMemo(() => {
@@ -308,6 +316,14 @@ function App() {
                   )}
                 </div>
               )}
+
+              <div className="flex flex-wrap gap-1">
+                {rootTags.map((tag) => (
+                  <Badge variant="default" key={tag}>
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
 
               <div className="rounded-md border flex-1 min-h-0 overflow-hidden">
                 <ExploreTable
