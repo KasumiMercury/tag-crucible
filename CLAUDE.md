@@ -25,8 +25,10 @@ Key architectural elements:
 The Rust backend (`src-tauri/src/`) is organized into modules:
 - `lib.rs` - Entry point, registers Tauri commands and manages DuckDB connection state via `DbConnection` struct
 - `scan.rs` - Directory scanning functionality with `DirectoryNode` tree structure
-- `tagging.rs` - Tag assignment system with DuckDB persistence and path normalization
+- `tagging.rs` - Tag assignment and retrieval system with DuckDB persistence, path normalization, and ancestor tag inheritance logic
 - `main.rs` - Minimal entry point that delegates to `tag_crucible_lib::run()`
+
+The `tagging.rs` module includes comprehensive unit tests demonstrating tag inheritance, depth filtering, and path normalization behavior.
 
 ### Frontend Feature Structure
 
@@ -105,10 +107,15 @@ The application scans directories, displays file/folder information in a tree st
 
 **Tagging System**:
 - Uses DuckDB embedded database stored in platform-specific app data directory
-- Database schema: `path_tags(path TEXT, tag TEXT, created_at TIMESTAMP, PRIMARY KEY (path, tag))`
-- Paths are normalized using `fs::canonicalize()` before storage
-- `assign_tag_to_paths(paths, tag)` Tauri command handles tag assignment
+- Database schema: `path_tags(path TEXT, tag TEXT, path_depth INTEGER, created_at TIMESTAMP, PRIMARY KEY (path, tag))`
+- Paths are normalized using `fs::canonicalize()` before storage to ensure consistency
+- `assign_tag_to_paths(paths, tag)` Tauri command handles tag assignment with automatic deduplication
+- `get_tags_for_directory(connection, root, max_depth)` retrieves tags for a directory tree, including:
+  - Tags directly assigned to paths within the scan depth
+  - Tags inherited from ancestor directories (parent, grandparent, etc.)
+  - Depth-based filtering to limit descendant tag retrieval
 - DuckDB connection managed as Tauri state via `DbConnection` struct with `Mutex<Option<Connection>>`
+- Tag inheritance flows downward: child paths inherit all tags from their ancestors
 
 **Frontend**:
 - Uses TanStack Table for rendering tabular data

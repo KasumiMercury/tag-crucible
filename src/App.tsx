@@ -2,6 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { CornerLeftUp, RefreshCcw, ScanSearch, Tags } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
 import { useDirectoryScanner } from "@/features/explore/hooks/useDirectoryScanner";
@@ -142,6 +143,20 @@ function App() {
     }
     const formatted = formatPathForDisplay(directoryTree.info.path, 25);
     return formatted;
+  }, [directoryTree]);
+
+  const rootOwnTags = useMemo(() => {
+    if (!directoryTree) {
+      return [];
+    }
+    return directoryTree.info.own_tags;
+  }, [directoryTree]);
+
+  const rootInheritedTags = useMemo(() => {
+    if (!directoryTree) {
+      return [];
+    }
+    return directoryTree.info.inherited_tags;
   }, [directoryTree]);
 
   const isAllRowsSelected = useMemo(() => {
@@ -308,6 +323,19 @@ function App() {
                   )}
                 </div>
               )}
+
+              <div className="flex flex-wrap gap-1 items-center">
+                {rootInheritedTags.map((tag) => (
+                  <Badge variant="secondary" key={tag}>
+                    {tag}
+                  </Badge>
+                ))}
+                {rootOwnTags.map((tag) => (
+                  <Badge variant="default" key={tag}>
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
 
               <div className="rounded-md border flex-1 min-h-0 overflow-hidden">
                 <ExploreTable
