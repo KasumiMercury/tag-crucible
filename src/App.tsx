@@ -205,8 +205,10 @@ function App() {
   };
 
   const handleTagAdded = useCallback(
-    (tag: string, path: string) => {
-      console.log(`[App] Tag "${tag}" added to "${path}"`);
+    (tag: string, paths: string[]) => {
+      const itemCount = paths.length;
+      const itemText = itemCount === 1 ? "item" : "items";
+      console.log(`[App] Tag "${tag}" added to ${itemCount} ${itemText}`);
       void rescan();
     },
     [rescan],

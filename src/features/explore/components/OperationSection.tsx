@@ -12,7 +12,7 @@ export interface DetailsSectionItem {
 
 interface OperationSectionProps {
   items: DetailsSectionItem[];
-  onTagAdded?: (tag: string, path: string) => void;
+  onTagAdded?: (tag: string, paths: string[]) => void;
 }
 
 export function OperationSection({ items, onTagAdded }: OperationSectionProps) {
@@ -43,11 +43,16 @@ export function OperationSection({ items, onTagAdded }: OperationSectionProps) {
     [items],
   );
 
+  const targetPaths = useMemo(
+    () => items.map((item) => item.absolutePath),
+    [items],
+  );
+
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col gap-4">
         <DetailsSection fileInfo={null} />
-        <TagInput targetPath={null} onTagAdded={onTagAdded} />
+        <TagInput targetPaths={[]} onTagAdded={onTagAdded} />
       </div>
     );
   }
@@ -64,10 +69,7 @@ export function OperationSection({ items, onTagAdded }: OperationSectionProps) {
       <div className="flex-1 min-h-0 overflow-hidden">
         <DetailsSection fileInfo={currentItem?.fileInfo || null} />
       </div>
-      <TagInput
-        targetPath={currentItem?.absolutePath || null}
-        onTagAdded={onTagAdded}
-      />
+      <TagInput targetPaths={targetPaths} onTagAdded={onTagAdded} />
     </div>
   );
 }

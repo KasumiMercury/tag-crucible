@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 interface TagInputProps {
-  targetPath: string | null;
-  onTagAdded?: (tag: string, path: string) => void;
+  targetPaths: string[];
+  onTagAdded?: (tag: string, paths: string[]) => void;
 }
 
-export function TagInput({ targetPath, onTagAdded }: TagInputProps) {
+export function TagInput({ targetPaths, onTagAdded }: TagInputProps) {
   const [tagName, setTagName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
   const inputId = useId();
@@ -21,8 +21,8 @@ export function TagInput({ targetPath, onTagAdded }: TagInputProps) {
       return;
     }
 
-    if (!targetPath) {
-      console.warn("No target path selected");
+    if (targetPaths.length === 0) {
+      console.warn("No target paths selected");
       return;
     }
 
@@ -30,13 +30,17 @@ export function TagInput({ targetPath, onTagAdded }: TagInputProps) {
 
     try {
       await invoke("assign_tag_to_paths", {
-        paths: [targetPath],
+        paths: targetPaths,
         tag: trimmedTag,
       });
 
-      console.log(`Successfully tagged "${targetPath}" with "${trimmedTag}"`);
+      const itemCount = targetPaths.length;
+      const itemText = itemCount === 1 ? "item" : "items";
+      console.log(
+        `Successfully tagged ${itemCount} ${itemText} with "${trimmedTag}"`,
+      );
       setTagName("");
-      onTagAdded?.(trimmedTag, targetPath);
+      onTagAdded?.(trimmedTag, targetPaths);
     } catch (error) {
       console.error("Failed to assign tag:", error);
     } finally {
@@ -51,10 +55,15 @@ export function TagInput({ targetPath, onTagAdded }: TagInputProps) {
     }
   };
 
+  const labelText =
+    targetPaths.length > 1
+      ? `Add Tag (${targetPaths.length} items)`
+      : "Add Tag";
+
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={inputId} className="text-sm font-medium">
-        Add Tag
+        {labelText}
       </label>
       <div className="flex gap-2">
         <Input
@@ -64,12 +73,14 @@ export function TagInput({ targetPath, onTagAdded }: TagInputProps) {
           value={tagName}
           onChange={(e) => setTagName(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={!targetPath || isAdding}
+          disabled={targetPaths.length === 0 || isAdding}
         />
         <Button
           type="button"
           onClick={handleAddTag}
-          disabled={!targetPath || isAdding || tagName.trim() === ""}
+          disabled={
+            targetPaths.length === 0 || isAdding || tagName.trim() === ""
+          }
         >
           {isAdding ? "Adding..." : "Add"}
         </Button>
