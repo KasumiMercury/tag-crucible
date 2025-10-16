@@ -1,7 +1,12 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { CornerLeftUp, RefreshCcw, ScanSearch, Tags } from "lucide-react";
+import {
+  CornerLeftUp,
+  PanelRightOpen,
+  RefreshCcw,
+  ScanSearch,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -244,9 +249,9 @@ function App() {
                       type="button"
                       variant="outline"
                       onClick={() => setIsSidebarOpen(true)}
-                      aria-label="Open tagging sidebar"
+                      aria-label="Open sidebar"
                     >
-                      <Tags className="size-4" aria-hidden />
+                      <PanelRightOpen className="size-4" aria-hidden />
                     </Button>
                   )}
                 </div>
