@@ -65,6 +65,12 @@ function App() {
     console.error("Failed to scan directory:", error);
   }, [error]);
 
+  // Reset selection when directory tree changes
+  useEffect(() => {
+    setSelectedItems({});
+    setIsSidebarOpen(false);
+  }, [directoryTree]);
+
   const handleRescan = useCallback(() => {
     void rescan();
   }, [rescan]);
@@ -167,19 +173,9 @@ function App() {
   }, [selectedItems]);
 
   const handleSelectionChange = (rows: DirectoryTableRow[]) => {
-    const visibleRows = tableData?.rows ?? [];
-    const updatedSelection: Record<string, DetailsSectionItem> = {
-      ...selectedItems,
-    };
+    const updatedSelection: Record<string, DetailsSectionItem> = {};
 
-    // Remove deselected items from currently visible rows.
-    visibleRows.forEach((row) => {
-      if (!rows.some((selectedRow) => selectedRow.id === row.id)) {
-        delete updatedSelection[row.id];
-      }
-    });
-
-    // Add or refresh newly selected rows.
+    // Add selected rows to the selection
     rows.forEach((row) => {
       updatedSelection[row.id] = {
         absolutePath: row.node.info.path,
@@ -192,12 +188,6 @@ function App() {
 
     const hasSelection = Object.keys(updatedSelection).length > 0;
     setIsSidebarOpen(hasSelection);
-
-    console.log("[Details] handleSelectionChange", {
-      incomingCount: rows.length,
-      nextCount: Object.keys(updatedSelection).length,
-      sidebarOpen: hasSelection,
-    });
   };
 
   const closeSidebar = () => {
