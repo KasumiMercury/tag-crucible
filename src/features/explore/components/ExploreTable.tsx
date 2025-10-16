@@ -137,8 +137,8 @@ export function ExploreTable({
   };
 
   const renderRow = (row: Row<DirectoryTableRow>) => {
-    const { info } = row.original;
-    const canScanDirectory = info.is_directory && !!onScanDirectory;
+    const { node } = row.original;
+    const canScanDirectory = node.info.is_directory && !!onScanDirectory;
 
     return (
       <ContextMenu key={row.id}>
@@ -163,7 +163,7 @@ export function ExploreTable({
           <ContextMenuContent>
             <ContextMenuItem
               onSelect={() => {
-                void onScanDirectory?.(info.path);
+                void onScanDirectory?.(node.info.path);
               }}
             >
               <Search size={14} className="mr-1" />

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { FileInfo } from "@/types";
+import type { DirectoryNode } from "@/types";
 import { DetailsSection } from "./DetailsSection";
 import { FileSelector } from "./FileSelector";
 import { TagInput } from "./TagInput";
@@ -7,7 +7,7 @@ import { TagInput } from "./TagInput";
 export interface DetailsSectionItem {
   absolutePath: string;
   displayName: string;
-  fileInfo: FileInfo;
+  node: DirectoryNode;
 }
 
 interface OperationSectionProps {
@@ -51,7 +51,7 @@ export function OperationSection({ items, onTagAdded }: OperationSectionProps) {
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col gap-4">
-        <DetailsSection fileInfo={null} />
+        <DetailsSection node={null} />
         <TagInput targetPaths={[]} onTagAdded={onTagAdded} />
       </div>
     );
@@ -67,7 +67,7 @@ export function OperationSection({ items, onTagAdded }: OperationSectionProps) {
         />
       )}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <DetailsSection fileInfo={currentItem?.fileInfo || null} />
+        <DetailsSection node={currentItem?.node || null} />
       </div>
       <TagInput targetPaths={targetPaths} onTagAdded={onTagAdded} />
     </div>

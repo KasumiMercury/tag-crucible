@@ -182,9 +182,9 @@ function App() {
     // Add or refresh newly selected rows.
     rows.forEach((row) => {
       updatedSelection[row.id] = {
-        absolutePath: row.info.path,
+        absolutePath: row.node.info.path,
         displayName: row.name,
-        fileInfo: row.info,
+        node: row.node,
       };
     });
 

@@ -1,16 +1,16 @@
 import { FileDetails } from "@/components/file-details";
-import type { FileInfo } from "@/types";
+import type { DirectoryNode } from "@/types";
 
 interface DetailsSectionProps {
-  fileInfo: FileInfo | null;
+  node: DirectoryNode | null;
   title?: string;
 }
 
 export function DetailsSection({
-  fileInfo,
+  node,
   title = "Details",
 }: DetailsSectionProps) {
-  if (!fileInfo) {
+  if (!node) {
     return (
       <div className="flex h-full flex-col gap-4">
         <h2 className="text-lg font-semibold">{title}</h2>
@@ -23,7 +23,7 @@ export function DetailsSection({
     <div className="flex h-full flex-col gap-4">
       <h2 className="text-lg font-semibold">{title}</h2>
       <div className="flex-1 overflow-y-auto">
-        <FileDetails fileInfo={fileInfo} />
+        <FileDetails node={node} />
       </div>
     </div>
   );
