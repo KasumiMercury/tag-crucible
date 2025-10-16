@@ -1,5 +1,6 @@
 mod scan;
 mod tagging;
+mod win;
 
 use log::info;
 use scan::{scan_current_directory, scan_directory};

@@ -153,10 +153,7 @@ fn collect_descendant_tags(
         let stored_path_buf = PathBuf::from(&stored_path);
 
         if stored_path_buf == *root_path || stored_path_buf.starts_with(root_path) {
-            tags_by_path
-                .entry(stored_path_buf)
-                .or_default()
-                .insert(tag);
+            tags_by_path.entry(stored_path_buf).or_default().insert(tag);
         }
     }
 
@@ -430,14 +427,11 @@ mod tests {
         insert(&paths.descendant, "desc-tag");
         insert(&paths.deep_descendant, "deep-tag");
 
-        let depth_one = get_tags_for_directory(&connection, &paths.scan_root, 1)
-            .expect("fetch depth 1 tags");
+        let depth_one =
+            get_tags_for_directory(&connection, &paths.scan_root, 1).expect("fetch depth 1 tags");
         assert!(depth_one.direct_tags.get(&paths.scan_root).is_some());
         assert!(depth_one.direct_tags.get(&paths.descendant).is_some());
-        assert!(depth_one
-            .direct_tags
-            .get(&paths.deep_descendant)
-            .is_none());
+        assert!(depth_one.direct_tags.get(&paths.deep_descendant).is_none());
 
         let depth_three =
             get_tags_for_directory(&connection, &paths.scan_root, 3).expect("fetch depth 3 tags");

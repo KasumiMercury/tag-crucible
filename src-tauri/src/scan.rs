@@ -35,14 +35,16 @@ pub enum ScanError {
 // File/Directory information structure
 #[derive(Serialize, Clone)]
 pub struct FileInfo {
-    path: PathBuf,
-    is_directory: bool,
+    pub(crate) path: PathBuf,
+    pub(crate) is_directory: bool,
     is_symlink: bool,
     size: u64,
     hierarchy: Vec<String>,
     modified: Option<String>,
     own_tags: Vec<String>,
     inherited_tags: Vec<String>,
+    #[serde(default)]
+    pub(crate) windows_tags: Vec<String>,
 }
 
 // Tree node structure
@@ -95,6 +97,8 @@ fn perform_scan(
     tags: &DirectoryTagSnapshot,
 ) -> Result<DirectoryNode, ScanError> {
     let mut entries = collect_entries(path, depth)?;
+    #[cfg(target_os = "windows")]
+    crate::win::property::collect_windows_tags(path, &mut entries);
     apply_tags(path, &mut entries, tags);
     build_directory_tree(path, &entries)
 }
@@ -158,6 +162,7 @@ fn to_file_info(entry: &DirEntry) -> Result<FileInfo, ScanError> {
         modified,
         own_tags: Vec::new(),
         inherited_tags: Vec::new(),
+        windows_tags: Vec::new(),
     })
 }
 
@@ -216,11 +221,7 @@ fn fetch_tags_for_scan(
         .map_err(|err| ScanError::Database(err.to_string()))
 }
 
-fn apply_tags(
-    root: &Path,
-    entries: &mut [FileInfo],
-    tag_snapshot: &DirectoryTagSnapshot,
-) {
+fn apply_tags(root: &Path, entries: &mut [FileInfo], tag_snapshot: &DirectoryTagSnapshot) {
     let mut cache: HashMap<PathBuf, (Vec<String>, Vec<String>)> = HashMap::new();
     let normalized_root = normalize_path_buf(root);
     let direct_tags = &tag_snapshot.direct_tags;
@@ -362,6 +363,7 @@ mod tests {
             modified: None,
             own_tags: Vec::new(),
             inherited_tags: Vec::new(),
+            windows_tags: Vec::new(),
         }
     }
 
