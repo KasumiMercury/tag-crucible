@@ -14,33 +14,23 @@ interface OperationSectionProps {
 }
 
 export function OperationSection({ items }: OperationSectionProps) {
-  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+
+  // Reset index when items change
+  useMemo(() => {
+    if (items.length === 0) {
+      setSelectedIndex(0);
+    } else if (selectedIndex >= items.length) {
+      setSelectedIndex(0);
+    }
+  }, [items, selectedIndex]);
 
   const currentItem = useMemo(() => {
     if (items.length === 0) {
       return null;
     }
-
-    if (items.length === 1) {
-      return items[0];
-    }
-
-    const selected = items.find((item) => item.absolutePath === selectedPath);
-    return selected || items[0];
-  }, [items, selectedPath]);
-
-  useMemo(() => {
-    if (items.length === 0) {
-      setSelectedPath(null);
-    } else if (items.length === 1) {
-      setSelectedPath(items[0].absolutePath);
-    } else if (
-      selectedPath === null ||
-      !items.find((item) => item.absolutePath === selectedPath)
-    ) {
-      setSelectedPath(items[0].absolutePath);
-    }
-  }, [items, selectedPath]);
+    return items[selectedIndex] || items[0];
+  }, [items, selectedIndex]);
 
   const selectorItems = useMemo(
     () =>
@@ -60,8 +50,8 @@ export function OperationSection({ items }: OperationSectionProps) {
       {items.length > 1 && (
         <FileSelector
           items={selectorItems}
-          value={currentItem?.absolutePath || ""}
-          onChange={setSelectedPath}
+          selectedIndex={selectedIndex}
+          onChange={setSelectedIndex}
         />
       )}
       <div className="flex-1 min-h-0 overflow-hidden">
