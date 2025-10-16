@@ -204,6 +204,14 @@ function App() {
     setIsSidebarOpen(false);
   };
 
+  const handleTagAdded = useCallback(
+    (tag: string, path: string) => {
+      console.log(`[App] Tag "${tag}" added to "${path}"`);
+      void rescan();
+    },
+    [rescan],
+  );
+
   return (
     <main className="h-screen max-h-screen overflow-hidden">
       <div className="flex h-full min-h-0 w-full">
@@ -283,7 +291,7 @@ function App() {
           )}
         </div>
         <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar}>
-          <OperationSection items={sidebarItems} />
+          <OperationSection items={sidebarItems} onTagAdded={handleTagAdded} />
         </Sidebar>
       </div>
     </main>

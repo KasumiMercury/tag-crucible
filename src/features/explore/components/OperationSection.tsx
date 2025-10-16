@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { FileInfo } from "@/types";
 import { DetailsSection } from "./DetailsSection";
 import { FileSelector } from "./FileSelector";
+import { TagInput } from "./TagInput";
 
 export interface DetailsSectionItem {
   absolutePath: string;
@@ -11,9 +12,10 @@ export interface DetailsSectionItem {
 
 interface OperationSectionProps {
   items: DetailsSectionItem[];
+  onTagAdded?: (tag: string, path: string) => void;
 }
 
-export function OperationSection({ items }: OperationSectionProps) {
+export function OperationSection({ items, onTagAdded }: OperationSectionProps) {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   // Reset index when items change
@@ -42,7 +44,12 @@ export function OperationSection({ items }: OperationSectionProps) {
   );
 
   if (items.length === 0) {
-    return <DetailsSection fileInfo={null} />;
+    return (
+      <div className="flex h-full flex-col gap-4">
+        <DetailsSection fileInfo={null} />
+        <TagInput targetPath={null} onTagAdded={onTagAdded} />
+      </div>
+    );
   }
 
   return (
@@ -57,6 +64,10 @@ export function OperationSection({ items }: OperationSectionProps) {
       <div className="flex-1 min-h-0 overflow-hidden">
         <DetailsSection fileInfo={currentItem?.fileInfo || null} />
       </div>
+      <TagInput
+        targetPath={currentItem?.absolutePath || null}
+        onTagAdded={onTagAdded}
+      />
     </div>
   );
 }
