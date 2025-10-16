@@ -69,7 +69,7 @@ function App() {
   useEffect(() => {
     setSelectedItems({});
     setIsSidebarOpen(false);
-  }, [directoryTree]);
+  }, []);
 
   const handleRescan = useCallback(() => {
     void rescan();

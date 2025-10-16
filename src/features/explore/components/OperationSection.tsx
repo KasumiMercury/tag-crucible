@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DirectoryNode } from "@/types";
 import { DetailsSection } from "./DetailsSection";
 import { FileSelector } from "./FileSelector";
@@ -19,13 +19,17 @@ export function OperationSection({ items, onTagAdded }: OperationSectionProps) {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
   // Reset index when items change
-  useMemo(() => {
-    if (items.length === 0) {
-      setSelectedIndex(0);
-    } else if (selectedIndex >= items.length) {
-      setSelectedIndex(0);
-    }
-  }, [items, selectedIndex]);
+  useEffect(() => {
+    setSelectedIndex((current) => {
+      if (items.length === 0) {
+        return 0;
+      }
+      if (current >= items.length) {
+        return 0;
+      }
+      return current;
+    });
+  }, [items]);
 
   const currentItem = useMemo(() => {
     if (items.length === 0) {
