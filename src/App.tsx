@@ -9,11 +9,11 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DetailsSection,
-  type DetailsSectionItem,
-} from "@/features/explore/components/DetailsSection";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
+import {
+  type DetailsSectionItem,
+  OperationSection,
+} from "@/features/explore/components/OperationSection";
 import { useDirectoryScanner } from "@/features/explore/hooks/useDirectoryScanner";
 import { exploreColumns } from "@/features/explore/tableColumns";
 import type { DirectoryTableRow } from "@/features/explore/types";
@@ -283,7 +283,7 @@ function App() {
           )}
         </div>
         <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar}>
-          <DetailsSection items={sidebarItems} />
+          <OperationSection items={sidebarItems} />
         </Sidebar>
       </div>
     </main>
