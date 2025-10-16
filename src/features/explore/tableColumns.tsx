@@ -1,24 +1,8 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Square, SquareCheckBig } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
 import type { DirectoryTableRow } from "@/features/explore/types";
-
-function formatDateTime(isoString: string | null): string {
-  if (!isoString) {
-    return "-";
-  }
-
-  const date = new Date(isoString);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-
-  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-}
+import { formatDateTime } from "@/lib/format";
 
 export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
   {
@@ -56,10 +40,10 @@ export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
     enableSorting: true,
   },
   {
-    accessorKey: "info.own_tags",
+    accessorKey: "node.info.own_tags",
     header: "Tags",
     cell: ({ row }) => {
-      const tags = row.original.info.own_tags;
+      const tags = row.original.node.info.own_tags;
       if (tags.length === 0) {
         return <span>-</span>;
       }
@@ -76,22 +60,22 @@ export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
     enableSorting: false,
   },
   {
-    accessorKey: "info.modified",
+    accessorKey: "node.info.modified",
     header: "Modified",
     accessorFn: (row) => {
-      return formatDateTime(row.info.modified);
+      return formatDateTime(row.node.info.modified);
     },
   },
   {
-    accessorKey: "info.size",
+    accessorKey: "node.info.size",
     header: "Size",
     accessorFn: (row) => {
-      return row.info.is_directory ? "-" : `${row.info.size}`;
+      return row.node.info.is_directory ? "-" : `${row.node.info.size}`;
     },
     enableSorting: true,
     sortingFn: (rowA, rowB) => {
-      const a = rowA.original.info;
-      const b = rowB.original.info;
+      const a = rowA.original.node.info;
+      const b = rowB.original.node.info;
 
       // Directories always come last when sorting by size
       if (a.is_directory && !b.is_directory) return 1;

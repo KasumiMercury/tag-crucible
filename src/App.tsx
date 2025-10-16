@@ -1,19 +1,24 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-import { CornerLeftUp, RefreshCcw, ScanSearch, Tags } from "lucide-react";
+import {
+  CornerLeftUp,
+  PanelRightOpen,
+  RefreshCcw,
+  ScanSearch,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
+import {
+  type DetailsSectionItem,
+  OperationSection,
+} from "@/features/explore/components/OperationSection";
 import { useDirectoryScanner } from "@/features/explore/hooks/useDirectoryScanner";
 import { exploreColumns } from "@/features/explore/tableColumns";
 import type { DirectoryTableRow } from "@/features/explore/types";
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 import { formatPathForDisplay } from "@/features/explore/utils/formatPathForDisplay";
-import {
-  TaggingSection,
-  type TaggingSidebarItem,
-} from "@/features/tagging/components/TaggingSection";
 import { Sidebar } from "@/Sidebar";
 
 function joinPathSegments(segments: string[], separator: string): string {
@@ -31,11 +36,9 @@ function joinPathSegments(segments: string[], separator: string): string {
 
 function App() {
   const [selectedItems, setSelectedItems] = useState<
-    Record<string, TaggingSidebarItem>
+    Record<string, DetailsSectionItem>
   >({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isAggregateTaggingEnabled, setIsAggregateTaggingEnabled] =
-    useState(false);
   const {
     directoryTree,
     loading,
@@ -61,6 +64,12 @@ function App() {
     }
     console.error("Failed to scan directory:", error);
   }, [error]);
+
+  // Reset selection when directory tree changes
+  useEffect(() => {
+    setSelectedItems({});
+    setIsSidebarOpen(false);
+  }, []);
 
   const handleRescan = useCallback(() => {
     void rescan();
@@ -159,117 +168,41 @@ function App() {
     return directoryTree.info.inherited_tags;
   }, [directoryTree]);
 
-  const isAllRowsSelected = useMemo(() => {
-    if (!tableData || tableData.rows.length === 0) {
-      return false;
-    }
-    return tableData.rows.every((row) => !!selectedItems[row.id]);
-  }, [tableData, selectedItems]);
-
-  const sidebarItems = useMemo<TaggingSidebarItem[]>(() => {
-    if (isAggregateTaggingEnabled && directoryTree) {
-      return [
-        {
-          absolutePath: directoryTree.info.path,
-          displayName: directoryTree.info.path,
-        },
-      ];
-    }
+  const sidebarItems = useMemo<DetailsSectionItem[]>(() => {
     return Object.values(selectedItems);
-  }, [directoryTree, isAggregateTaggingEnabled, selectedItems]);
+  }, [selectedItems]);
 
   const handleSelectionChange = (rows: DirectoryTableRow[]) => {
-    const visibleRows = tableData?.rows ?? [];
-    const updatedSelection: Record<string, TaggingSidebarItem> = {
-      ...selectedItems,
-    };
+    const updatedSelection: Record<string, DetailsSectionItem> = {};
 
-    // Remove deselected items from currently visible rows.
-    visibleRows.forEach((row) => {
-      if (!rows.some((selectedRow) => selectedRow.id === row.id)) {
-        delete updatedSelection[row.id];
-      }
-    });
-
-    // Add or refresh newly selected rows.
+    // Add selected rows to the selection
     rows.forEach((row) => {
       updatedSelection[row.id] = {
-        absolutePath: row.info.path,
+        absolutePath: row.node.info.path,
         displayName: row.name,
+        node: row.node,
       };
     });
 
     setSelectedItems(updatedSelection);
 
     const hasSelection = Object.keys(updatedSelection).length > 0;
-    setIsSidebarOpen(hasSelection || isAggregateTaggingEnabled);
-    if (!hasSelection) {
-      setIsAggregateTaggingEnabled(false);
-    }
-
-    console.log("[Tagging] handleSelectionChange", {
-      incomingCount: rows.length,
-      nextCount: Object.keys(updatedSelection).length,
-      sidebarOpen: hasSelection || isAggregateTaggingEnabled,
-    });
-
-    const willSelectAllRows =
-      !!tableData &&
-      tableData.rows.length > 0 &&
-      tableData.rows.every((row) => updatedSelection[row.id]);
-    if (!willSelectAllRows) {
-      setIsAggregateTaggingEnabled(false);
-    }
-  };
-
-  const handleSidebarItemRemove = (absolutePath: string) => {
-    if (
-      isAggregateTaggingEnabled &&
-      directoryTree?.info.path === absolutePath
-    ) {
-      setSelectedItems({});
-      setIsAggregateTaggingEnabled(false);
-      return;
-    }
-
-    if (!selectedItems[absolutePath]) {
-      return;
-    }
-
-    const nextSelection = { ...selectedItems };
-    delete nextSelection[absolutePath];
-    setSelectedItems(nextSelection);
-
-    setIsAggregateTaggingEnabled((previous) => {
-      if (!previous) {
-        return previous;
-      }
-      if (!tableData || tableData.rows.length === 0) {
-        return false;
-      }
-      const allRowsStillSelected = tableData.rows.every(
-        (row) => !!nextSelection[row.id],
-      );
-      return allRowsStillSelected;
-    });
-
-    const hasRemainingSelections = Object.keys(nextSelection).length > 0;
-    if (!hasRemainingSelections) {
-      setIsAggregateTaggingEnabled(false);
-    }
+    setIsSidebarOpen(hasSelection);
   };
 
   const closeSidebar = () => {
     setIsSidebarOpen(false);
-    setIsAggregateTaggingEnabled(false);
   };
 
-  const toggleAggregateTagging = () => {
-    if (!isAllRowsSelected) {
-      return;
-    }
-    setIsAggregateTaggingEnabled((previous) => !previous);
-  };
+  const handleTagAdded = useCallback(
+    (tag: string, paths: string[]) => {
+      const itemCount = paths.length;
+      const itemText = itemCount === 1 ? "item" : "items";
+      console.log(`[App] Tag "${tag}" added to ${itemCount} ${itemText}`);
+      void rescan();
+    },
+    [rescan],
+  );
 
   return (
     <main className="h-screen max-h-screen overflow-hidden">
@@ -316,9 +249,9 @@ function App() {
                       type="button"
                       variant="outline"
                       onClick={() => setIsSidebarOpen(true)}
-                      aria-label="Open tagging sidebar"
+                      aria-label="Open sidebar"
                     >
-                      <Tags className="size-4" aria-hidden />
+                      <PanelRightOpen className="size-4" aria-hidden />
                     </Button>
                   )}
                 </div>
@@ -350,13 +283,7 @@ function App() {
           )}
         </div>
         <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar}>
-          <TaggingSection
-            items={sidebarItems}
-            showAggregateToggle={isAllRowsSelected}
-            aggregateModeEnabled={isAggregateTaggingEnabled}
-            onAggregateToggle={toggleAggregateTagging}
-            onItemRemove={handleSidebarItemRemove}
-          />
+          <OperationSection items={sidebarItems} onTagAdded={handleTagAdded} />
         </Sidebar>
       </div>
     </main>
