@@ -1,8 +1,8 @@
 import type {
-  DirectoryNode,
   DirectoryTableRow,
   ExploreTableData,
 } from "@/features/explore/types";
+import type { DirectoryNode } from "@/types";
 
 export function buildExploreTableRows(
   directory: DirectoryNode,

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useMemo, useState } from "react";
-import type { DirectoryNode } from "@/features/explore/types";
+import type { DirectoryNode } from "@/types";
 
 type ScanRequest = {
   path?: string | null;

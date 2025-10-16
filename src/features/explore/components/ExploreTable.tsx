@@ -117,6 +117,25 @@ export function ExploreTable({
   const visibleColumns = table.getVisibleLeafColumns();
   const gridTemplateColumns = `repeat(${visibleColumns.length || 1}, minmax(0, 1fr))`;
 
+  const handleRowClick = (
+    row: Row<DirectoryTableRow>,
+    event: React.MouseEvent,
+  ) => {
+    const isMultiSelectKey = event.ctrlKey || event.metaKey;
+
+    if (isMultiSelectKey) {
+      row.toggleSelected();
+    } else {
+      const isCurrentlySelected = row.getIsSelected();
+
+      handleRowSelectionChange({});
+
+      if (!isCurrentlySelected) {
+        handleRowSelectionChange({ [row.id]: true });
+      }
+    }
+  };
+
   const renderRow = (row: Row<DirectoryTableRow>) => {
     const { info } = row.original;
     const canScanDirectory = info.is_directory && !!onScanDirectory;
@@ -126,7 +145,7 @@ export function ExploreTable({
         <ContextMenuTrigger asChild>
           <TableRow
             data-state={row.getIsSelected() && "selected"}
-            onClick={row.getToggleSelectedHandler()}
+            onClick={(event) => handleRowClick(row, event)}
             className={cn("cursor-pointer", row.getIsSelected() && "bg-muted")}
             style={{ gridTemplateColumns }}
           >

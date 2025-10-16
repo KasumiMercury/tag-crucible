@@ -4,16 +4,16 @@ import "./App.css";
 import { CornerLeftUp, RefreshCcw, ScanSearch, Tags } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DetailsSection,
+  type DetailsSectionItem,
+} from "@/features/explore/components/DetailsSection";
 import { ExploreTable } from "@/features/explore/components/ExploreTable";
 import { useDirectoryScanner } from "@/features/explore/hooks/useDirectoryScanner";
 import { exploreColumns } from "@/features/explore/tableColumns";
 import type { DirectoryTableRow } from "@/features/explore/types";
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
 import { formatPathForDisplay } from "@/features/explore/utils/formatPathForDisplay";
-import {
-  TaggingSection,
-  type TaggingSidebarItem,
-} from "@/features/tagging/components/TaggingSection";
 import { Sidebar } from "@/Sidebar";
 
 function joinPathSegments(segments: string[], separator: string): string {
@@ -31,11 +31,9 @@ function joinPathSegments(segments: string[], separator: string): string {
 
 function App() {
   const [selectedItems, setSelectedItems] = useState<
-    Record<string, TaggingSidebarItem>
+    Record<string, DetailsSectionItem>
   >({});
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isAggregateTaggingEnabled, setIsAggregateTaggingEnabled] =
-    useState(false);
   const {
     directoryTree,
     loading,
@@ -159,28 +157,13 @@ function App() {
     return directoryTree.info.inherited_tags;
   }, [directoryTree]);
 
-  const isAllRowsSelected = useMemo(() => {
-    if (!tableData || tableData.rows.length === 0) {
-      return false;
-    }
-    return tableData.rows.every((row) => !!selectedItems[row.id]);
-  }, [tableData, selectedItems]);
-
-  const sidebarItems = useMemo<TaggingSidebarItem[]>(() => {
-    if (isAggregateTaggingEnabled && directoryTree) {
-      return [
-        {
-          absolutePath: directoryTree.info.path,
-          displayName: directoryTree.info.path,
-        },
-      ];
-    }
+  const sidebarItems = useMemo<DetailsSectionItem[]>(() => {
     return Object.values(selectedItems);
-  }, [directoryTree, isAggregateTaggingEnabled, selectedItems]);
+  }, [selectedItems]);
 
   const handleSelectionChange = (rows: DirectoryTableRow[]) => {
     const visibleRows = tableData?.rows ?? [];
-    const updatedSelection: Record<string, TaggingSidebarItem> = {
+    const updatedSelection: Record<string, DetailsSectionItem> = {
       ...selectedItems,
     };
 
@@ -196,79 +179,24 @@ function App() {
       updatedSelection[row.id] = {
         absolutePath: row.info.path,
         displayName: row.name,
+        fileInfo: row.info,
       };
     });
 
     setSelectedItems(updatedSelection);
 
     const hasSelection = Object.keys(updatedSelection).length > 0;
-    setIsSidebarOpen(hasSelection || isAggregateTaggingEnabled);
-    if (!hasSelection) {
-      setIsAggregateTaggingEnabled(false);
-    }
+    setIsSidebarOpen(hasSelection);
 
-    console.log("[Tagging] handleSelectionChange", {
+    console.log("[Details] handleSelectionChange", {
       incomingCount: rows.length,
       nextCount: Object.keys(updatedSelection).length,
-      sidebarOpen: hasSelection || isAggregateTaggingEnabled,
+      sidebarOpen: hasSelection,
     });
-
-    const willSelectAllRows =
-      !!tableData &&
-      tableData.rows.length > 0 &&
-      tableData.rows.every((row) => updatedSelection[row.id]);
-    if (!willSelectAllRows) {
-      setIsAggregateTaggingEnabled(false);
-    }
-  };
-
-  const handleSidebarItemRemove = (absolutePath: string) => {
-    if (
-      isAggregateTaggingEnabled &&
-      directoryTree?.info.path === absolutePath
-    ) {
-      setSelectedItems({});
-      setIsAggregateTaggingEnabled(false);
-      return;
-    }
-
-    if (!selectedItems[absolutePath]) {
-      return;
-    }
-
-    const nextSelection = { ...selectedItems };
-    delete nextSelection[absolutePath];
-    setSelectedItems(nextSelection);
-
-    setIsAggregateTaggingEnabled((previous) => {
-      if (!previous) {
-        return previous;
-      }
-      if (!tableData || tableData.rows.length === 0) {
-        return false;
-      }
-      const allRowsStillSelected = tableData.rows.every(
-        (row) => !!nextSelection[row.id],
-      );
-      return allRowsStillSelected;
-    });
-
-    const hasRemainingSelections = Object.keys(nextSelection).length > 0;
-    if (!hasRemainingSelections) {
-      setIsAggregateTaggingEnabled(false);
-    }
   };
 
   const closeSidebar = () => {
     setIsSidebarOpen(false);
-    setIsAggregateTaggingEnabled(false);
-  };
-
-  const toggleAggregateTagging = () => {
-    if (!isAllRowsSelected) {
-      return;
-    }
-    setIsAggregateTaggingEnabled((previous) => !previous);
   };
 
   return (
@@ -350,13 +278,7 @@ function App() {
           )}
         </div>
         <Sidebar isOpen={isSidebarOpen} onClose={closeSidebar}>
-          <TaggingSection
-            items={sidebarItems}
-            showAggregateToggle={isAllRowsSelected}
-            aggregateModeEnabled={isAggregateTaggingEnabled}
-            onAggregateToggle={toggleAggregateTagging}
-            onItemRemove={handleSidebarItemRemove}
-          />
+          <DetailsSection items={sidebarItems} />
         </Sidebar>
       </div>
     </main>

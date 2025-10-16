@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-
-import type { DirectoryNode, FileInfo } from "@/features/explore/types";
 import { buildExploreTableRows } from "@/features/explore/utils/buildExploreTableRows";
+import type { DirectoryNode, FileInfo } from "@/types";
 
 describe("buildExploreTableRows", () => {
   const baseDirectoryInfo: FileInfo = {
@@ -11,6 +10,8 @@ describe("buildExploreTableRows", () => {
     size: 0,
     modified: "2025-01-01T12:00:00.000Z",
     hierarchy: ["/", "root"],
+    own_tags: [],
+    inherited_tags: [],
   };
 
   const sampleNode: DirectoryNode = {
@@ -26,6 +27,8 @@ describe("buildExploreTableRows", () => {
           size: 0,
           modified: "2025-01-01T12:34:56.000Z",
           hierarchy: ["/", "root", "dir"],
+          own_tags: [],
+          inherited_tags: [],
         },
         children: [],
       },
@@ -38,6 +41,8 @@ describe("buildExploreTableRows", () => {
           size: 1234,
           modified: "2025-01-02T08:09:10.000Z",
           hierarchy: ["/", "root", "example.txt"],
+          own_tags: [],
+          inherited_tags: [],
         },
         children: [],
       },
