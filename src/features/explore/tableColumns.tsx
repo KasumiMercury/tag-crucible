@@ -43,13 +43,31 @@ export const exploreColumns: ColumnDef<DirectoryTableRow>[] = [
     accessorKey: "node.info.own_tags",
     header: "Tags",
     cell: ({ row }) => {
-      const tags = row.original.node.info.own_tags;
-      if (tags.length === 0) {
+      const { own_tags: ownTags, windows_tags: windowsTags } =
+        row.original.node.info;
+      const seen = new Set<string>();
+      const combinedTags: string[] = [];
+
+      for (const tag of windowsTags) {
+        if (!seen.has(tag)) {
+          seen.add(tag);
+          combinedTags.push(tag);
+        }
+      }
+
+      for (const tag of ownTags) {
+        if (!seen.has(tag)) {
+          seen.add(tag);
+          combinedTags.push(tag);
+        }
+      }
+
+      if (combinedTags.length === 0) {
         return <span>-</span>;
       }
       return (
         <div className="flex flex-wrap gap-1 max-w-sm">
-          {tags.map((tag) => (
+          {combinedTags.map((tag) => (
             <Badge variant="default" key={tag}>
               {tag}
             </Badge>

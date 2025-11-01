@@ -7,6 +7,7 @@ export interface FileInfo {
   modified: string | null;
   own_tags: string[];
   inherited_tags: string[];
+  windows_tags: string[];
 }
 
 export interface DirectoryNode {

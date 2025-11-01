@@ -12,6 +12,7 @@ describe("buildExploreTableRows", () => {
     hierarchy: ["/", "root"],
     own_tags: [],
     inherited_tags: [],
+    windows_tags: [],
   };
 
   const sampleNode: DirectoryNode = {
@@ -29,6 +30,7 @@ describe("buildExploreTableRows", () => {
           hierarchy: ["/", "root", "dir"],
           own_tags: [],
           inherited_tags: [],
+          windows_tags: [],
         },
         children: [],
       },
@@ -43,6 +45,7 @@ describe("buildExploreTableRows", () => {
           hierarchy: ["/", "root", "example.txt"],
           own_tags: [],
           inherited_tags: [],
+          windows_tags: [],
         },
         children: [],
       },
