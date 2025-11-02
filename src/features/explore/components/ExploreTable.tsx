@@ -39,6 +39,7 @@ interface ExploreTableProps {
   onSelectionChange?: (selectedRows: DirectoryTableRow[]) => void;
   selectedRowIds?: string[];
   onScanDirectory?: (path: string) => void;
+  isLoading?: boolean;
 }
 
 export function ExploreTable({
@@ -47,6 +48,7 @@ export function ExploreTable({
   onSelectionChange,
   selectedRowIds,
   onScanDirectory,
+  isLoading = false,
 }: ExploreTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -179,7 +181,7 @@ export function ExploreTable({
   const hasAnyRows = visibleRows.length > 0;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden relative">
       <Table className="h-full w-full overflow-x-auto">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -221,19 +223,28 @@ export function ExploreTable({
           ))}
         </TableHeader>
         <TableBody>
-          {hasAnyRows ? (
-            visibleRows.map(renderRow)
-          ) : (
-            <TableRow>
-              <TableCell colSpan={table.getVisibleLeafColumns().length}>
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  No data to display.
-                </div>
-              </TableCell>
-            </TableRow>
+          {!isLoading && (
+            <>
+              {hasAnyRows ? (
+                visibleRows.map(renderRow)
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={table.getVisibleLeafColumns().length}>
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      No data to display.
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </>
           )}
         </TableBody>
       </Table>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
+          <div className="text-2xl font-semibold">Loading...</div>
+        </div>
+      )}
     </div>
   );
 }

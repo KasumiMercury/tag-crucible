@@ -226,9 +226,6 @@ function App() {
     <main className="h-screen max-h-screen overflow-hidden">
       <div className="flex h-full min-h-0 w-full">
         <div className="flex min-h-0 min-w-0 h-full flex-1 flex-col gap-4 px-5 pt-10 pb-5 overflow-hidden">
-          {loading && (
-            <div className="text-sm text-muted-foreground">Loading...</div>
-          )}
           {tableData && (
             <>
               {currentDirectoryLabel && (
@@ -295,6 +292,7 @@ function App() {
                   onSelectionChange={handleSelectionChange}
                   selectedRowIds={Object.keys(selectedItems)}
                   onScanDirectory={handleScanFromRow}
+                  isLoading={loading}
                 />
               </div>
             </>
