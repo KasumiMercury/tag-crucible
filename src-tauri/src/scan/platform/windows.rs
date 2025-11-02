@@ -7,14 +7,19 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use windows::{
     core::{Array, IInspectable, Interface, Result as WinResult, HSTRING},
-    Foundation::{IPropertyValue, PropertyType},
+    Foundation::{DateTime, IPropertyValue, PropertyType},
     Storage::{
-        FileProperties::PropertyPrefetchOptions,
+        FileProperties::{BasicProperties, PropertyPrefetchOptions},
         Search::{CommonFileQuery, CommonFolderQuery, FolderDepth, IndexerOption, QueryOptions},
         StorageFolder, SystemProperties,
     },
 };
 use windows_collections::{IIterable, IVectorView};
+
+const WINDOWS_TO_UNIX_EPOCH_DIFF_SECS: i64 = 11_644_473_600;
+const HUNDRED_NANOS_PER_SEC: i64 = 10_000_000;
+
+type NormalizedPath = String;
 
 fn to_keywords(value: &IInspectable) -> WinResult<Vec<String>> {
     if let Ok(pv) = value.cast::<IPropertyValue>() {
@@ -98,14 +103,11 @@ fn normalized_key(path: &Path) -> String {
     canonical_lowercase(path).unwrap_or_else(|| path.to_string_lossy().to_lowercase())
 }
 
-fn to_modified_timestamp(date_modified: windows::Foundation::DateTime) -> Option<String> {
+fn to_modified_timestamp(date_modified: DateTime) -> Option<String> {
     let date_modified_i64 = date_modified.UniversalTime;
     if date_modified_i64 <= 0 {
         return None;
     }
-
-    const WINDOWS_TO_UNIX_EPOCH_DIFF_SECS: i64 = 11644473600;
-    const HUNDRED_NANOS_PER_SEC: i64 = 10_000_000;
 
     let unix_timestamp_secs =
         (date_modified_i64 / HUNDRED_NANOS_PER_SEC) - WINDOWS_TO_UNIX_EPOCH_DIFF_SECS;
@@ -121,9 +123,7 @@ fn to_modified_timestamp(date_modified: windows::Foundation::DateTime) -> Option
     }
 }
 
-fn collect_windows_tags(
-    basic_props: &windows::Storage::FileProperties::BasicProperties,
-) -> WinResult<Vec<String>> {
+fn collect_windows_tags(basic_props: &BasicProperties) -> WinResult<Vec<String>> {
     let keyword = SystemProperties::Keywords()?;
     let props = IIterable::<HSTRING>::from(vec![keyword.clone()]);
 
@@ -136,17 +136,17 @@ fn collect_windows_tags(
     Ok(Vec::new())
 }
 
-fn folder_to_file_info(folder: &StorageFolder) -> WinResult<FileInfo> {
-    let basic_props = folder.GetBasicPropertiesAsync()?.join()?;
+fn build_file_info_from_properties(
+    path: PathBuf,
+    basic_props: &BasicProperties,
+    fallback_is_directory: bool,
+) -> WinResult<FileInfo> {
     let size = basic_props.Size()?;
     let date_modified = basic_props.DateModified()?;
-    let windows_tags = collect_windows_tags(&basic_props)?;
-
-    let path_hstring = folder.Path()?;
-    let path = PathBuf::from(path_hstring.to_string());
+    let windows_tags = collect_windows_tags(basic_props)?;
     let hierarchy = collect_path_hierarchy(&path);
     let modified = to_modified_timestamp(date_modified);
-    let (is_directory, is_symlink) = classify_entry(&path, true);
+    let (is_directory, is_symlink) = classify_entry(&path, fallback_is_directory);
 
     Ok(FileInfo {
         path,
@@ -161,6 +161,12 @@ fn folder_to_file_info(folder: &StorageFolder) -> WinResult<FileInfo> {
     })
 }
 
+fn folder_to_file_info(folder: &StorageFolder) -> WinResult<FileInfo> {
+    let basic_props = folder.GetBasicPropertiesAsync()?.join()?;
+    let path = PathBuf::from(folder.Path()?.to_string());
+    build_file_info_from_properties(path, &basic_props, true)
+}
+
 fn list_file(folder: &StorageFolder) -> WinResult<Vec<FileInfo>> {
     let query_options = build_file_query_options()?;
     let query = folder.CreateItemQueryWithOptions(&query_options)?;
@@ -170,30 +176,13 @@ fn list_file(folder: &StorageFolder) -> WinResult<Vec<FileInfo>> {
 
     for item in &items {
         let basic_props = item.GetBasicPropertiesAsync()?.join()?;
-        let size = basic_props.Size()?;
-        let date_modified = basic_props.DateModified()?;
-
-        let path_hstring = item.Path()?;
-        let path = PathBuf::from(path_hstring.to_string());
-
-        let windows_tags = collect_windows_tags(&basic_props)?;
-        let modified = to_modified_timestamp(date_modified);
+        let path = PathBuf::from(item.Path()?.to_string());
         let fallback_is_directory = item.cast::<StorageFolder>().is_ok();
-        let (is_directory, is_symlink) = classify_entry(&path, fallback_is_directory);
-
-        let hierarchy = collect_path_hierarchy(&path);
-
-        results.push(FileInfo {
+        results.push(build_file_info_from_properties(
             path,
-            is_directory,
-            is_symlink,
-            size,
-            hierarchy,
-            modified,
-            own_tags: Vec::new(),
-            inherited_tags: Vec::new(),
-            windows_tags,
-        });
+            &basic_props,
+            fallback_is_directory,
+        )?);
     }
 
     Ok(results)
@@ -238,17 +227,11 @@ pub(crate) fn collect_entries(root: &Path, max_depth: usize) -> Result<Vec<FileI
 
     let mut all_entries = Vec::new();
     let mut queue = VecDeque::new();
-    let mut visited_dirs: HashSet<String> = HashSet::new();
+    let mut visited_dirs: HashSet<NormalizedPath> = HashSet::new();
 
-    match folder_to_file_info(&root_folder) {
-        Ok(root_info) => all_entries.push(root_info),
-        Err(e) => {
-            return Err(ScanError::Io(format!(
-                "Failed to retrieve metadata for {:?}: {}",
-                root, e
-            )))
-        }
-    }
+    let root_info = folder_to_file_info(&root_folder)
+        .map_err(|e| ScanError::Io(format!("Failed to retrieve metadata for {:?}: {}", root, e)))?;
+    all_entries.push(root_info);
 
     visited_dirs.insert(normalized_key(root));
     queue.push_back((root_folder, root.to_path_buf(), 0));
