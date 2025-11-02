@@ -154,7 +154,7 @@ export function ExploreTable({
             {row.getVisibleCells().map((cell) => (
               <TableCell
                 key={cell.id}
-                className="p-2 whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px] w-fit"
+                className="p-2 whitespace-nowrap [&:has([role=checkbox])]:pr-0 *:[[role=checkbox]]:translate-y-0.5 w-fit"
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
