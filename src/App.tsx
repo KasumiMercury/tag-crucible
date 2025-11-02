@@ -154,18 +154,36 @@ function App() {
     return formatted;
   }, [directoryTree]);
 
-  const rootOwnTags = useMemo(() => {
-    if (!directoryTree) {
-      return [];
-    }
-    return directoryTree.info.own_tags;
-  }, [directoryTree]);
-
   const rootInheritedTags = useMemo(() => {
     if (!directoryTree) {
       return [];
     }
     return directoryTree.info.inherited_tags;
+  }, [directoryTree]);
+
+  const rootTags = useMemo(() => {
+    if (!directoryTree) {
+      return [] as string[];
+    }
+    const seen = new Set<string>();
+    const combined: string[] = [];
+    const windowsTags = directoryTree.info.windows_tags ?? [];
+
+    for (const tag of windowsTags) {
+      if (!seen.has(tag)) {
+        seen.add(tag);
+        combined.push(tag);
+      }
+    }
+
+    for (const tag of directoryTree.info.own_tags) {
+      if (!seen.has(tag)) {
+        seen.add(tag);
+        combined.push(tag);
+      }
+    }
+
+    return combined;
   }, [directoryTree]);
 
   const sidebarItems = useMemo<DetailsSectionItem[]>(() => {
@@ -263,7 +281,7 @@ function App() {
                     {tag}
                   </Badge>
                 ))}
-                {rootOwnTags.map((tag) => (
+                {rootTags.map((tag) => (
                   <Badge variant="default" key={tag}>
                     {tag}
                   </Badge>

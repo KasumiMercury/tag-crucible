@@ -17,6 +17,23 @@ export function FileDetails({ node }: FileDetailsProps) {
       : "File";
 
   const TypeIcon = info.is_symlink ? Link : info.is_directory ? Folder : File;
+  const windowsTags = info.windows_tags ?? [];
+  const seen = new Set<string>();
+  const combinedTags: string[] = [];
+
+  for (const tag of windowsTags) {
+    if (!seen.has(tag)) {
+      seen.add(tag);
+      combinedTags.push(tag);
+    }
+  }
+
+  for (const tag of info.own_tags) {
+    if (!seen.has(tag)) {
+      seen.add(tag);
+      combinedTags.push(tag);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,13 +70,13 @@ export function FileDetails({ node }: FileDetailsProps) {
           <dd className="text-sm">{formatDateTime(info.modified)}</dd>
         </div>
 
-        {info.own_tags.length > 0 && (
+        {combinedTags.length > 0 && (
           <div>
             <dt className="text-xs font-medium text-muted-foreground mb-1">
               Tags
             </dt>
             <dd className="flex flex-wrap gap-1">
-              {info.own_tags.map((tag) => (
+              {combinedTags.map((tag) => (
                 <Badge variant="default" key={tag}>
                   {tag}
                 </Badge>

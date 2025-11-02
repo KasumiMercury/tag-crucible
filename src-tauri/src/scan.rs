@@ -1,16 +1,15 @@
-use chrono::{DateTime, Utc};
+mod helpers;
+mod platform;
+
 use log::{error, warn};
 use serde::Serialize;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::env;
 use std::fs;
-use std::io::ErrorKind;
-use std::path::{Component, Path, PathBuf};
-use std::time::SystemTime;
+use std::path::{Path, PathBuf};
 use tauri::State;
 use thiserror::Error;
-use walkdir::{DirEntry, WalkDir};
 
 use crate::tagging::{get_tags_for_directory, DirectoryTagSnapshot};
 use crate::DbConnection;
@@ -35,14 +34,16 @@ pub enum ScanError {
 // File/Directory information structure
 #[derive(Serialize, Clone)]
 pub struct FileInfo {
-    path: PathBuf,
-    is_directory: bool,
+    pub(crate) path: PathBuf,
+    pub(crate) is_directory: bool,
     is_symlink: bool,
     size: u64,
     hierarchy: Vec<String>,
     modified: Option<String>,
     own_tags: Vec<String>,
     inherited_tags: Vec<String>,
+    #[serde(default)]
+    pub(crate) windows_tags: Vec<String>,
 }
 
 // Tree node structure
@@ -94,109 +95,9 @@ fn perform_scan(
     depth: usize,
     tags: &DirectoryTagSnapshot,
 ) -> Result<DirectoryNode, ScanError> {
-    let mut entries = collect_entries(path, depth)?;
+    let mut entries = platform::collect_entries(path, depth)?;
     apply_tags(path, &mut entries, tags);
     build_directory_tree(path, &entries)
-}
-
-fn collect_entries(root: &Path, depth: usize) -> Result<Vec<FileInfo>, ScanError> {
-    let mut entries = Vec::new();
-
-    for entry in WalkDir::new(root).max_depth(depth) {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(e) => {
-                if let Some(io_err) = e.io_error() {
-                    if io_err.kind() == ErrorKind::PermissionDenied {
-                        warn!("Skipping entry due to permission denied: {:?}", e.path());
-                        continue;
-                    }
-                }
-                return Err(ScanError::Io(e.to_string()));
-            }
-        };
-
-        match entry.metadata() {
-            Ok(_) => match to_file_info(&entry) {
-                Ok(info) => entries.push(info),
-                Err(e) => return Err(e),
-            },
-            Err(e) => {
-                if let Some(io_err) = e.io_error() {
-                    match io_err.kind() {
-                        ErrorKind::PermissionDenied => {
-                            warn!(
-                                "Skipping entry due to permission denied: {:?}",
-                                entry.path()
-                            );
-                            continue;
-                        }
-                        _ => {
-                            return Err(ScanError::Io(e.to_string()));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(entries)
-}
-
-fn to_file_info(entry: &DirEntry) -> Result<FileInfo, ScanError> {
-    let metadata = entry.metadata().map_err(|e| ScanError::Io(e.to_string()))?;
-    let hierarchy = collect_path_hierarchy(entry.path());
-
-    let modified = metadata.modified().ok().map(system_time_to_rfc3339);
-
-    Ok(FileInfo {
-        path: entry.path().to_path_buf(),
-        is_directory: metadata.is_dir(),
-        is_symlink: metadata.file_type().is_symlink(),
-        size: metadata.len(),
-        hierarchy,
-        modified,
-        own_tags: Vec::new(),
-        inherited_tags: Vec::new(),
-    })
-}
-
-fn collect_path_hierarchy(path: &Path) -> Vec<String> {
-    let mut segments = Vec::new();
-    let mut pending_prefix: Option<String> = None;
-
-    for component in path.components() {
-        match component {
-            Component::Prefix(prefix_component) => {
-                pending_prefix = Some(prefix_component.as_os_str().to_string_lossy().to_string());
-            }
-            Component::RootDir => {
-                if let Some(prefix) = pending_prefix.take() {
-                    segments.push(format!("{prefix}{}", std::path::MAIN_SEPARATOR));
-                } else {
-                    segments.push(String::from(std::path::MAIN_SEPARATOR_STR));
-                }
-            }
-            Component::Normal(os_str) => {
-                if let Some(prefix) = pending_prefix.take() {
-                    segments.push(prefix);
-                }
-                segments.push(os_str.to_string_lossy().to_string());
-            }
-            Component::CurDir => {}
-            Component::ParentDir => segments.push(String::from("..")),
-        }
-    }
-
-    if let Some(prefix) = pending_prefix.take() {
-        segments.push(prefix);
-    }
-
-    segments
-}
-
-fn system_time_to_rfc3339(time: SystemTime) -> String {
-    DateTime::<Utc>::from(time).to_rfc3339()
 }
 
 fn fetch_tags_for_scan(
@@ -216,11 +117,7 @@ fn fetch_tags_for_scan(
         .map_err(|err| ScanError::Database(err.to_string()))
 }
 
-fn apply_tags(
-    root: &Path,
-    entries: &mut [FileInfo],
-    tag_snapshot: &DirectoryTagSnapshot,
-) {
+fn apply_tags(root: &Path, entries: &mut [FileInfo], tag_snapshot: &DirectoryTagSnapshot) {
     let mut cache: HashMap<PathBuf, (Vec<String>, Vec<String>)> = HashMap::new();
     let normalized_root = normalize_path_buf(root);
     let direct_tags = &tag_snapshot.direct_tags;
@@ -349,6 +246,7 @@ fn normalize_path_buf(path: &Path) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+    use super::helpers::collect_path_hierarchy;
     use super::*;
     use std::path::Path;
 
@@ -362,6 +260,7 @@ mod tests {
             modified: None,
             own_tags: Vec::new(),
             inherited_tags: Vec::new(),
+            windows_tags: Vec::new(),
         }
     }
 
