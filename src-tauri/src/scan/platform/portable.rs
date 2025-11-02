@@ -1,6 +1,7 @@
-use super::super::helpers::build_file_info;
+use super::super::helpers::{collect_path_hierarchy, system_time_to_rfc3339};
 use super::super::{FileInfo, ScanError};
 use log::warn;
+use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 use walkdir::{DirEntry, WalkDir};
@@ -52,4 +53,20 @@ pub(crate) fn collect_entries(root: &Path, depth: usize) -> Result<Vec<FileInfo>
 fn to_file_info(entry: &DirEntry) -> Result<FileInfo, ScanError> {
     let metadata = entry.metadata().map_err(|e| ScanError::Io(e.to_string()))?;
     Ok(build_file_info(entry.path(), &metadata))
+}
+
+fn build_file_info(path: &Path, metadata: &fs::Metadata) -> FileInfo {
+    let hierarchy = collect_path_hierarchy(path);
+    let modified = metadata.modified().ok().map(system_time_to_rfc3339);
+    FileInfo {
+        path: path.to_path_buf(),
+        is_directory: metadata.is_dir(),
+        is_symlink: metadata.file_type().is_symlink(),
+        size: metadata.len(),
+        hierarchy,
+        modified,
+        own_tags: Vec::new(),
+        inherited_tags: Vec::new(),
+        windows_tags: Vec::new(),
+    }
 }
