@@ -1,7 +1,8 @@
 use super::super::helpers::{collect_path_hierarchy, system_time_to_rfc3339};
 use super::super::{FileInfo, ScanError};
 use log::{debug, warn};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use windows::{
@@ -71,6 +72,32 @@ fn build_folder_query_options() -> WinResult<QueryOptions> {
     Ok(qo)
 }
 
+fn classify_entry(path: &Path, fallback_is_directory: bool) -> (bool, bool) {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => {
+            if metadata.file_type().is_symlink() {
+                let target_is_directory = fs::metadata(path)
+                    .map(|meta| meta.is_dir())
+                    .unwrap_or(fallback_is_directory);
+                (target_is_directory, true)
+            } else {
+                (metadata.is_dir(), false)
+            }
+        }
+        Err(_) => (fallback_is_directory, false),
+    }
+}
+
+fn canonical_lowercase(path: &Path) -> Option<String> {
+    fs::canonicalize(path)
+        .ok()
+        .map(|p| p.to_string_lossy().to_lowercase())
+}
+
+fn normalized_key(path: &Path) -> String {
+    canonical_lowercase(path).unwrap_or_else(|| path.to_string_lossy().to_lowercase())
+}
+
 fn to_modified_timestamp(date_modified: windows::Foundation::DateTime) -> Option<String> {
     let date_modified_i64 = date_modified.UniversalTime;
     if date_modified_i64 <= 0 {
@@ -119,11 +146,12 @@ fn folder_to_file_info(folder: &StorageFolder) -> WinResult<FileInfo> {
     let path = PathBuf::from(path_hstring.to_string());
     let hierarchy = collect_path_hierarchy(&path);
     let modified = to_modified_timestamp(date_modified);
+    let (is_directory, is_symlink) = classify_entry(&path, true);
 
     Ok(FileInfo {
         path,
-        is_directory: true,
-        is_symlink: false,
+        is_directory,
+        is_symlink,
         size,
         hierarchy,
         modified,
@@ -150,15 +178,15 @@ fn list_file(folder: &StorageFolder) -> WinResult<Vec<FileInfo>> {
 
         let windows_tags = collect_windows_tags(&basic_props)?;
         let modified = to_modified_timestamp(date_modified);
-
-        let is_directory = item.cast::<StorageFolder>().is_ok();
+        let fallback_is_directory = item.cast::<StorageFolder>().is_ok();
+        let (is_directory, is_symlink) = classify_entry(&path, fallback_is_directory);
 
         let hierarchy = collect_path_hierarchy(&path);
 
         results.push(FileInfo {
             path,
             is_directory,
-            is_symlink: false,
+            is_symlink,
             size,
             hierarchy,
             modified,
@@ -210,6 +238,7 @@ pub(crate) fn collect_entries(root: &Path, max_depth: usize) -> Result<Vec<FileI
 
     let mut all_entries = Vec::new();
     let mut queue = VecDeque::new();
+    let mut visited_dirs: HashSet<String> = HashSet::new();
 
     match folder_to_file_info(&root_folder) {
         Ok(root_info) => all_entries.push(root_info),
@@ -221,6 +250,7 @@ pub(crate) fn collect_entries(root: &Path, max_depth: usize) -> Result<Vec<FileI
         }
     }
 
+    visited_dirs.insert(normalized_key(root));
     queue.push_back((root_folder, root.to_path_buf(), 0));
 
     while let Some((folder, folder_path, current_depth)) = queue.pop_front() {
@@ -255,6 +285,14 @@ pub(crate) fn collect_entries(root: &Path, max_depth: usize) -> Result<Vec<FileI
                     for subfolder in subfolders {
                         if let Ok(subfolder_path_hstring) = subfolder.Path() {
                             let subfolder_path = PathBuf::from(subfolder_path_hstring.to_string());
+                            let key = normalized_key(&subfolder_path);
+                            if !visited_dirs.insert(key) {
+                                debug!(
+                                    "Skipping already visited folder during scan: {:?}",
+                                    subfolder_path
+                                );
+                                continue;
+                            }
                             queue.push_back((subfolder, subfolder_path, current_depth + 1));
                         }
                     }
