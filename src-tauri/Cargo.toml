@@ -39,3 +39,5 @@ windows = { version = "0.62.2", features = [
     "Storage_Search",
     "Storage_Streams",
 ] }
+windows-collections = "0.3.2"
+windows-future = "0.3.2"
