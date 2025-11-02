@@ -237,25 +237,34 @@ pub(crate) fn collect_entries(root: &Path, max_depth: usize) -> Result<Vec<FileI
     queue.push_back((root_folder, root.to_path_buf(), 0));
 
     while let Some((folder, folder_path, current_depth)) = queue.pop_front() {
-        match list_file(&folder) {
-            Ok(files) => {
-                debug!(
-                    "Found {} files in {:?} at depth {}",
-                    files.len(),
-                    folder_path,
-                    current_depth
-                );
-                all_entries.extend(files);
+        let can_descend = current_depth < max_depth;
+
+        if can_descend {
+            match list_file(&folder) {
+                Ok(files) => {
+                    debug!(
+                        "Found {} files in {:?} at depth {}",
+                        files.len(),
+                        folder_path,
+                        current_depth
+                    );
+                    all_entries.extend(files);
+                }
+                Err(e) => {
+                    warn!(
+                        "Failed to list files in {:?}: {}. Skipping.",
+                        folder_path, e
+                    );
+                }
             }
-            Err(e) => {
-                warn!(
-                    "Failed to list files in {:?}: {}. Skipping.",
-                    folder_path, e
-                );
-            }
+        } else {
+            debug!(
+                "Skipping file enumeration for {:?} at depth {} (max depth {})",
+                folder_path, current_depth, max_depth
+            );
         }
 
-        if current_depth < max_depth {
+        if can_descend {
             match list_folder(&folder) {
                 Ok(subfolders) => {
                     debug!(
